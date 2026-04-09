@@ -1,34 +1,82 @@
 from io import BytesIO
 from datetime import datetime
+import math
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    PageBreak,
+)
+
+# =========================================================
+# PATHS
+# =========================================================
+BASE_DIR = Path(__file__).resolve().parent
+LOGO_PATH_PNG = BASE_DIR / "assets" / "logo.png"
+LOGO_PATH_JPG = BASE_DIR / "assets" / "logo.jpg"
+LOGO_PATH_JPEG = BASE_DIR / "assets" / "logo.jpeg"
+
+if LOGO_PATH_PNG.exists():
+    LOGO_PATH = LOGO_PATH_PNG
+elif LOGO_PATH_JPG.exists():
+    LOGO_PATH = LOGO_PATH_JPG
+elif LOGO_PATH_JPEG.exists():
+    LOGO_PATH = LOGO_PATH_JPEG
+else:
+    LOGO_PATH = None
 
 # =========================================================
 # CONFIG
 # =========================================================
 st.set_page_config(
     page_title="Étude financière & Business Plan",
-    page_icon="📊",
+    page_icon="📘",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-YEARS = [1, 2, 3, 4, 5]
-MONTHS = [
-    "Mois 1", "Mois 2", "Mois 3", "Mois 4", "Mois 5", "Mois 6",
-    "Mois 7", "Mois 8", "Mois 9", "Mois 10", "Mois 11", "Mois 12"
+# =========================================================
+# MOT DE PASSE
+# =========================================================
+APP_PASSWORD = "EDDAQAQ2026"
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("## Accès sécurisé")
+    pwd = st.text_input("Mot de passe", type="password")
+
+    if st.button("Se connecter"):
+        if pwd == APP_PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Mot de passe incorrect")
+
+    st.stop()
+
+YEAR_LABELS = [f"Année {i}" for i in range(1, 6)]
+YEAR_NUMS = [1, 2, 3, 4, 5]
+MONTH_LABELS = [
+    "Jan", "Fév", "Mar", "Avr", "Mai", "Juin",
+    "Juil", "Août", "Sep", "Oct", "Nov", "Déc"
 ]
-MONTHS_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"]
 
 # =========================================================
 # STYLE
@@ -37,63 +85,70 @@ st.markdown(
     """
     <style>
     html, body, [data-testid="stAppViewContainer"], .main {
-        background: linear-gradient(180deg, #0f172a 0%, #111827 100%) !important;
-        color: #f8fafc !important;
+        background: linear-gradient(180deg, #f4f8ff 0%, #eef5ff 100%) !important;
+        color: #10243f !important;
     }
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #020617 0%, #0f172a 100%) !important;
-        border-right: 1px solid rgba(255,255,255,0.08);
+        background: linear-gradient(180deg, #0f2b57 0%, #15396f 100%) !important;
+        color: white !important;
+        border-right: 1px solid rgba(255,255,255,0.10);
     }
-    [data-testid="stHeader"] { background: rgba(0,0,0,0) !important; }
-    .block-container { max-width: 1700px; padding-top: 1rem; padding-bottom: 2rem; }
-    h1, h2, h3, h4, h5, h6, p, label, div, span, li { color: #f8fafc !important; }
-    .hero-card {
-        background: linear-gradient(135deg, rgba(37,99,235,0.35), rgba(16,185,129,0.18));
-        border: 1px solid rgba(255,255,255,0.16);
-        border-radius: 24px;
-        padding: 24px;
-        margin-bottom: 18px;
-        box-shadow: 0 16px 40px rgba(0,0,0,0.22);
+    [data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    [data-testid="stHeader"] {
+        background: rgba(0,0,0,0) !important;
+    }
+    .block-container {
+        max-width: 1700px;
+        padding-top: 1rem;
+        padding-bottom: 2rem;
     }
     .card {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.10);
-        border-radius: 18px;
+        background: white;
+        border-radius: 20px;
         padding: 18px;
         margin-bottom: 16px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+        border: 1px solid #dbe7f6;
+        box-shadow: 0 8px 24px rgba(10, 50, 90, 0.06);
     }
     .section-title {
-        font-size: 1.12rem;
-        font-weight: 700;
-        margin-bottom: 0.75rem;
+        font-size: 1.08rem;
+        font-weight: 800;
+        color: #0f4c81 !important;
+        margin-bottom: 0.65rem;
     }
-    .small-note {
+    .sub-note {
         font-size: 0.92rem;
-        color: #cbd5e1 !important;
+        color: #4e6788 !important;
     }
     div[data-testid="stMetric"] {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.10) !important;
+        background: white !important;
+        border: 1px solid #dbe7f6 !important;
         border-radius: 18px !important;
         padding: 12px !important;
+        box-shadow: 0 8px 22px rgba(10, 50, 90, 0.05);
     }
     .good-box, .warn-box, .risk-box {
-        padding: 14px; border-radius: 14px; margin-bottom: 10px;
-        border: 1px solid rgba(255,255,255,0.10);
+        padding: 12px 14px;
+        border-radius: 14px;
+        margin-bottom: 10px;
+        border: 1px solid transparent;
     }
-    .good-box { background: rgba(16,185,129,0.18); border-color: rgba(16,185,129,0.35); }
-    .warn-box { background: rgba(245,158,11,0.18); border-color: rgba(245,158,11,0.35); }
-    .risk-box { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.35); }
-    .legend-chip {
-        display:inline-block;
-        padding:4px 10px;
-        border-radius:999px;
-        font-size:0.82rem;
-        background:rgba(255,255,255,0.08);
-        border:1px solid rgba(255,255,255,0.10);
-        margin-right:8px;
-        margin-bottom:8px;
+    .good-box {
+        background: #ebfbf4;
+        border-color: #90e0b8;
+        color: #125e36 !important;
+    }
+    .warn-box {
+        background: #fff8e8;
+        border-color: #ffd57a;
+        color: #8a5a00 !important;
+    }
+    .risk-box {
+        background: #fff0f0;
+        border-color: #f0a6a6;
+        color: #8b2222 !important;
     }
     </style>
     """,
@@ -103,92 +158,54 @@ st.markdown(
 # =========================================================
 # HELPERS
 # =========================================================
-def fmt_mad(x: float) -> str:
+def fmt_mad(x) -> str:
     try:
-        return f"{x:,.0f} MAD".replace(",", " ")
+        return f"{float(x):,.0f} MAD".replace(",", " ")
     except Exception:
         return "0 MAD"
 
 
-def fmt_pct(x: float) -> str:
+def fmt_pct(x) -> str:
     try:
-        return f"{x:.1%}"
+        return f"{float(x):.1%}"
     except Exception:
         return "0.0%"
 
 
-def safe_div(a: float, b: float) -> float:
-    if b in (0, None) or pd.isna(b):
+def n(x, default=0.0) -> float:
+    try:
+        if pd.isna(x):
+            return default
+        return float(x)
+    except Exception:
+        return default
+
+
+def i(x, default=0) -> int:
+    try:
+        if pd.isna(x):
+            return default
+        return int(float(x))
+    except Exception:
+        return default
+
+
+def safe_div(a, b) -> float:
+    if b in [0, None] or pd.isna(b):
         return 0.0
-    return a / b
+    return float(a) / float(b)
 
 
-def annuity_payment(principal: float, annual_rate: float, years: int) -> float:
-    if principal <= 0 or years <= 0:
-        return 0.0
-    monthly_rate = annual_rate / 12
-    n = years * 12
-    if monthly_rate == 0:
-        return principal / n
-    return principal * (monthly_rate / (1 - (1 + monthly_rate) ** (-n)))
+def growth_series(year1_value: float, growths: list[float]) -> list[float]:
+    vals = [year1_value]
+    current = year1_value
+    for g in growths:
+        current = current * (1 + g)
+        vals.append(current)
+    return vals
 
 
-def build_loan_schedule(principal: float, annual_rate: float, years: int, projection_years: int = 5) -> pd.DataFrame:
-    rows = []
-    if principal <= 0 or years <= 0:
-        for y in range(1, projection_years + 1):
-            rows.append({
-                "Année": y,
-                "Mensualité": 0.0,
-                "Annuité": 0.0,
-                "Intérêts": 0.0,
-                "Remboursement capital": 0.0,
-                "Capital restant dû": 0.0,
-            })
-        return pd.DataFrame(rows)
-
-    monthly_payment = annuity_payment(principal, annual_rate, years)
-    monthly_rate = annual_rate / 12
-    balance = principal
-    year_interest = 0.0
-    year_principal = 0.0
-
-    for month in range(1, projection_years * 12 + 1):
-        if balance > 1e-8:
-            interest = balance * monthly_rate
-            principal_paid = min(monthly_payment - interest, balance)
-            balance -= principal_paid
-        else:
-            interest = 0.0
-            principal_paid = 0.0
-
-        year_interest += interest
-        year_principal += principal_paid
-
-        if month % 12 == 0:
-            year = month // 12
-            rows.append({
-                "Année": year,
-                "Mensualité": monthly_payment,
-                "Annuité": year_interest + year_principal,
-                "Intérêts": year_interest,
-                "Remboursement capital": year_principal,
-                "Capital restant dû": max(balance, 0.0),
-            })
-            year_interest = 0.0
-            year_principal = 0.0
-
-    return pd.DataFrame(rows)
-
-
-def linear_amortization(amount: float, duration_years: int, projection_years: int = 5) -> list:
-    if amount <= 0 or duration_years <= 0:
-        return [0.0] * projection_years
-    annual = amount / duration_years
-    return [annual if y <= duration_years else 0.0 for y in range(1, projection_years + 1)]
-
-
-def normalize_distribution(values: list) -> np.ndarray:
+def normalize_percent_list(values):
     arr = np.array(values, dtype=float)
     total = arr.sum()
     if total <= 0:
@@ -196,33 +213,1473 @@ def normalize_distribution(values: list) -> np.ndarray:
     return arr / total
 
 
-def money_styler(df: pd.DataFrame, exclude=None):
-    exclude = exclude or []
-    fmt_map = {col: "{:,.0f}" for col in df.columns if col not in exclude}
-    return df.style.format(fmt_map)
+def to_year_columns_df(row_dict: dict, first_col_name: str = "Rubrique") -> pd.DataFrame:
+    rows = []
+    for label, values in row_dict.items():
+        row = {first_col_name: label}
+        for idx, y in enumerate(YEAR_LABELS):
+            row[y] = values[idx] if idx < len(values) else 0.0
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
-def pct_money_styler(df: pd.DataFrame, pct_cols=None, exclude=None):
-    pct_cols = pct_cols or []
-    exclude = exclude or []
-    fmt_map = {}
+def money_style(df: pd.DataFrame, non_money_cols=None):
+    non_money_cols = non_money_cols or []
+    formats = {}
     for col in df.columns:
-        if col in exclude:
+        if col not in non_money_cols:
+            formats[col] = "{:,.0f}"
+    return df.style.format(formats)
+
+
+def mixed_style(df: pd.DataFrame, percent_cols=None, non_money_cols=None):
+    percent_cols = percent_cols or []
+    non_money_cols = non_money_cols or []
+    formats = {}
+    for col in df.columns:
+        if col in non_money_cols:
             continue
-        fmt_map[col] = "{:.1%}" if col in pct_cols else "{:,.0f}"
-    return df.style.format(fmt_map)
+        if col in percent_cols:
+            formats[col] = "{:.1%}"
+        else:
+            formats[col] = "{:,.0f}"
+    return df.style.format(formats)
 
 
-def add_pdf_table(elements, title, df, pct_cols=None):
-    pct_cols = pct_cols or []
+def annuity_payment(principal: float, annual_rate: float, months: int) -> float:
+    if principal <= 0 or months <= 0:
+        return 0.0
+    m_rate = annual_rate / 12
+    if abs(m_rate) < 1e-12:
+        return principal / months
+    return principal * (m_rate / (1 - (1 + m_rate) ** (-months)))
+
+
+def build_loan_schedule(
+    principal: float,
+    annual_rate: float,
+    months: int,
+    deferment_months: int = 0,
+    projection_years: int = 5,
+    name: str = "Prêt"
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    monthly_rows = []
+    annual_rows = []
+
+    if principal <= 0 or months <= 0:
+        for y in YEAR_NUMS:
+            annual_rows.append({
+                "Source": name,
+                "Année": y,
+                "Mensualité": 0.0,
+                "Annuité": 0.0,
+                "Intérêts": 0.0,
+                "Remboursement capital": 0.0,
+                "Capital restant dû": 0.0,
+            })
+        return pd.DataFrame(annual_rows), pd.DataFrame(monthly_rows)
+
+    balance = principal
+    pay = annuity_payment(principal, annual_rate, months)
+    m_rate = annual_rate / 12
+
+    total_projection_months = projection_years * 12
+    for m in range(1, total_projection_months + 1):
+        if m <= deferment_months and balance > 0:
+            interest = balance * m_rate
+            principal_paid = 0.0
+            mensualite = interest
+        elif balance > 1e-8:
+            interest = balance * m_rate
+            principal_paid = min(pay - interest, balance)
+            mensualite = principal_paid + interest
+            balance = max(balance - principal_paid, 0.0)
+        else:
+            interest = 0.0
+            principal_paid = 0.0
+            mensualite = 0.0
+
+        monthly_rows.append({
+            "Source": name,
+            "Mois_index": m,
+            "Année": math.ceil(m / 12),
+            "Mensualité": mensualite,
+            "Intérêts": interest,
+            "Remboursement capital": principal_paid,
+            "Capital restant dû": balance,
+        })
+
+    monthly_df = pd.DataFrame(monthly_rows)
+
+    for y in YEAR_NUMS:
+        tmp = monthly_df[monthly_df["Année"] == y]
+        annual_rows.append({
+            "Source": name,
+            "Année": y,
+            "Mensualité": tmp["Mensualité"].iloc[0] if not tmp.empty else 0.0,
+            "Annuité": tmp["Mensualité"].sum(),
+            "Intérêts": tmp["Intérêts"].sum(),
+            "Remboursement capital": tmp["Remboursement capital"].sum(),
+            "Capital restant dû": tmp["Capital restant dû"].iloc[-1] if not tmp.empty else 0.0,
+        })
+
+    return pd.DataFrame(annual_rows), monthly_df
+
+
+def linear_amortization(amount: float, duration_years: int, projection_years: int = 5) -> list[float]:
+    if amount <= 0 or duration_years <= 0:
+        return [0.0] * projection_years
+    annual = amount / duration_years
+    return [annual if y <= duration_years else 0.0 for y in range(1, projection_years + 1)]
+
+
+def solidarity_rate(ebt):
+    if ebt <= 1_000_000:
+        return 0.0
+    if ebt <= 5_000_000:
+        return 0.015
+    if ebt <= 10_000_000:
+        return 0.025
+    if ebt <= 40_000_000:
+        return 0.035
+    return 0.05
+
+
+def build_default_investments():
+    return pd.DataFrame([
+        {"Rubrique": "Frais d'établissement", "Montant": 80000.0, "Durée amort. (ans)": 5},
+        {"Rubrique": "Frais d'étude", "Montant": 100000.0, "Durée amort. (ans)": 5},
+        {"Rubrique": "Logiciels / formations", "Montant": 100000.0, "Durée amort. (ans)": 3},
+        {"Rubrique": "Dépôt marque / brevet / modèle", "Montant": 20000.0, "Durée amort. (ans)": 5},
+        {"Rubrique": "Droits d'entrée", "Montant": 0.0, "Durée amort. (ans)": 5},
+        {"Rubrique": "Achat fonds de commerce / parts", "Montant": 0.0, "Durée amort. (ans)": 10},
+        {"Rubrique": "Droit au bail", "Montant": 500000.0, "Durée amort. (ans)": 10},
+        {"Rubrique": "Caution / dépôt de garantie", "Montant": 300000.0, "Durée amort. (ans)": 5},
+        {"Rubrique": "Frais de dossier", "Montant": 30000.0, "Durée amort. (ans)": 5},
+        {"Rubrique": "Frais de notaire / avocat", "Montant": 70000.0, "Durée amort. (ans)": 5},
+        {"Rubrique": "Enseigne / communication de lancement", "Montant": 120000.0, "Durée amort. (ans)": 4},
+        {"Rubrique": "Achat immobilier", "Montant": 1000000.0, "Durée amort. (ans)": 20},
+        {"Rubrique": "Construction / aménagement", "Montant": 4500000.0, "Durée amort. (ans)": 10},
+        {"Rubrique": "Terrassement", "Montant": 300000.0, "Durée amort. (ans)": 10},
+        {"Rubrique": "Matériel / équipements", "Montant": 12000000.0, "Durée amort. (ans)": 7},
+        {"Rubrique": "Stock initial", "Montant": 800000.0, "Durée amort. (ans)": 1},
+        {"Rubrique": "Trésorerie de départ", "Montant": 4000000.0, "Durée amort. (ans)": 0},
+    ])
+
+
+def build_default_financing():
+    return pd.DataFrame([
+        {"Source": "Apport personnel / familial", "Type": "Fonds propres", "Montant": 1010000.0, "Taux annuel": 0.0, "Durée (mois)": 0, "Différé (mois)": 0},
+        {"Source": "Apports en nature", "Type": "Fonds propres", "Montant": 0.0, "Taux annuel": 0.0, "Durée (mois)": 0, "Différé (mois)": 0},
+        {"Source": "Compte courant associé", "Type": "Quasi-fonds propres", "Montant": 0.0, "Taux annuel": 0.0, "Durée (mois)": 0, "Différé (mois)": 0},
+        {"Source": "Prêt n°1", "Type": "Emprunt", "Montant": 0.0, "Taux annuel": 0.06, "Durée (mois)": 120, "Différé (mois)": 0},
+        {"Source": "Prêt n°2", "Type": "Emprunt", "Montant": 0.0, "Taux annuel": 0.05, "Durée (mois)": 84, "Différé (mois)": 0},
+        {"Source": "Prêt n°3", "Type": "Emprunt", "Montant": 22910000.0, "Taux annuel": 0.05, "Durée (mois)": 84, "Différé (mois)": 0},
+        {"Source": "Subvention", "Type": "Subvention", "Montant": 0.0, "Taux annuel": 0.0, "Durée (mois)": 0, "Différé (mois)": 0},
+        {"Source": "Autre financement", "Type": "Autre", "Montant": 0.0, "Taux annuel": 0.0, "Durée (mois)": 0, "Différé (mois)": 0},
+    ])
+
+
+def build_default_leasing():
+    return pd.DataFrame([
+        {"Contrat": "LRM1", "Montant financé TTC": 120000.0, "Redevance mensuelle TTC": 2592.0, "Nombre de mois": 60, "Mois de départ": 1},
+        {"Contrat": "LRM2", "Montant financé TTC": 90000.0, "Redevance mensuelle TTC": 1944.0, "Nombre de mois": 60, "Mois de départ": 1},
+        {"Contrat": "LRM3", "Montant financé TTC": 75000.0, "Redevance mensuelle TTC": 1620.0, "Nombre de mois": 60, "Mois de départ": 1},
+        {"Contrat": "LRM4", "Montant financé TTC": 60000.0, "Redevance mensuelle TTC": 1296.0, "Nombre de mois": 60, "Mois de départ": 1},
+        {"Contrat": "FP1", "Montant financé TTC": 30000.0, "Redevance mensuelle TTC": 648.0, "Nombre de mois": 48, "Mois de départ": 1},
+        {"Contrat": "FP2", "Montant financé TTC": 250000.0, "Redevance mensuelle TTC": 5400.0, "Nombre de mois": 48, "Mois de départ": 1},
+        {"Contrat": "FP3", "Montant financé TTC": 20000.0, "Redevance mensuelle TTC": 432.0, "Nombre de mois": 48, "Mois de départ": 1},
+        {"Contrat": "FP4", "Montant financé TTC": 15000.0, "Redevance mensuelle TTC": 324.0, "Nombre de mois": 48, "Mois de départ": 1},
+        {"Contrat": "FP5", "Montant financé TTC": 10000.0, "Redevance mensuelle TTC": 216.0, "Nombre de mois": 48, "Mois de départ": 1},
+    ])
+
+
+def build_default_fixed_charges():
+    return pd.DataFrame([
+        {"Rubrique": "Assurances", "Année 1": 40000.0, "Année 2": 45000.0, "Année 3": 45000.0, "Année 4": 45000.0, "Année 5": 45000.0},
+        {"Rubrique": "Téléphone / internet", "Année 1": 15000.0, "Année 2": 15000.0, "Année 3": 15000.0, "Année 4": 20000.0, "Année 5": 20000.0},
+        {"Rubrique": "Autres abonnements", "Année 1": 10000.0, "Année 2": 10000.0, "Année 3": 10000.0, "Année 4": 10000.0, "Année 5": 10000.0},
+        {"Rubrique": "Carburant / transports", "Année 1": 25000.0, "Année 2": 25000.0, "Année 3": 30000.0, "Année 4": 35000.0, "Année 5": 40000.0},
+        {"Rubrique": "Déplacements / hébergement", "Année 1": 15000.0, "Année 2": 15000.0, "Année 3": 15000.0, "Année 4": 15000.0, "Année 5": 15000.0},
+        {"Rubrique": "Eau / électricité / gaz", "Année 1": 100000.0, "Année 2": 100000.0, "Année 3": 100000.0, "Année 4": 100000.0, "Année 5": 100000.0},
+        {"Rubrique": "Mutuelle", "Année 1": 10000.0, "Année 2": 10000.0, "Année 3": 10000.0, "Année 4": 10000.0, "Année 5": 10000.0},
+        {"Rubrique": "Fournitures diverses", "Année 1": 90322.92, "Année 2": 8840050.0, "Année 3": 12290050.0, "Année 4": 15493375.0, "Année 5": 16075562.5},
+        {"Rubrique": "Entretien matériel / vêtements", "Année 1": 40000.0, "Année 2": 40000.0, "Année 3": 40000.0, "Année 4": 40000.0, "Année 5": 40000.0},
+        {"Rubrique": "Nettoyage locaux", "Année 1": 30000.0, "Année 2": 30000.0, "Année 3": 30000.0, "Année 4": 30000.0, "Année 5": 30000.0},
+        {"Rubrique": "Publicité / communication", "Année 1": 50000.0, "Année 2": 50000.0, "Année 3": 50000.0, "Année 4": 50000.0, "Année 5": 50000.0},
+        {"Rubrique": "Loyer et charges locatives", "Année 1": 250000.0, "Année 2": 250000.0, "Année 3": 250000.0, "Année 4": 250000.0, "Année 5": 250000.0},
+        {"Rubrique": "Frais bancaires", "Année 1": 10000.0, "Année 2": 10000.0, "Année 3": 10000.0, "Année 4": 10000.0, "Année 5": 10000.0},
+        {"Rubrique": "Taxes diverses", "Année 1": 20000.0, "Année 2": 20000.0, "Année 3": 20000.0, "Année 4": 20000.0, "Année 5": 20000.0},
+        {"Rubrique": "Expert-comptable", "Année 1": 10000.0, "Année 2": 10000.0, "Année 3": 10000.0, "Année 4": 10000.0, "Année 5": 10000.0},
+    ])
+
+
+def build_default_salary_table():
+    return pd.DataFrame([
+        {"Poste": "Directeurs et managers", "Salaire brut mensuel": 105400.0, "Année 1": 2, "Année 2": 4, "Année 3": 4, "Année 4": 4, "Année 5": 4},
+        {"Poste": "Directeur médical", "Salaire brut mensuel": 34000.0, "Année 1": 1, "Année 2": 1, "Année 3": 1, "Année 4": 1, "Année 5": 1},
+        {"Poste": "Nutritionniste", "Salaire brut mensuel": 25500.0, "Année 1": 0, "Année 2": 1, "Année 3": 1, "Année 4": 1, "Année 5": 1},
+        {"Poste": "Directeur de soins", "Salaire brut mensuel": 25500.0, "Année 1": 1, "Année 2": 1, "Année 3": 1, "Année 4": 1, "Année 5": 1},
+        {"Poste": "Personnel paramédical", "Salaire brut mensuel": 133650.0 / 38.0, "Année 1": 38, "Année 2": 70, "Année 3": 81, "Année 4": 92, "Année 5": 104},
+        {"Poste": "Personnel administratif et support", "Salaire brut mensuel": 197775.0 / 27.0, "Année 1": 27, "Année 2": 43, "Année 3": 43, "Année 4": 43, "Année 5": 43},
+    ])
+
+
+def build_default_ca_table():
+    return pd.DataFrame([
+        {"Rubrique": "Vente de marchandises", "Année 1": 132450.0, "Croissance A2": 0.0, "Croissance A3": 0.10, "Croissance A4": 0.15, "Croissance A5": 0.20},
+        {"Rubrique": "Services", "Année 1": 7064424.0, "Croissance A2": 0.70, "Croissance A3": 0.50, "Croissance A4": 0.40, "Croissance A5": 0.30},
+    ])
+
+
+def build_default_monthly_distribution():
+    return pd.DataFrame({
+        "Mois": MONTH_LABELS,
+        "% CA marchandises": [100 / 12] * 12,
+        "% CA services": [100 / 12] * 12,
+    })
+
+
+def build_default_bfr_days():
+    return pd.DataFrame([
+        {"Rubrique": "Stock (jours d'achats)", "Année 1": 15, "Année 2": 15, "Année 3": 15, "Année 4": 15, "Année 5": 15},
+        {"Rubrique": "Créances AMO (jours)", "Année 1": 120, "Année 2": 120, "Année 3": 120, "Année 4": 120, "Année 5": 120},
+        {"Rubrique": "Créances privées (jours)", "Année 1": 120, "Année 2": 120, "Année 3": 120, "Année 4": 120, "Année 5": 120},
+        {"Rubrique": "Créances sans couverture (jours)", "Année 1": 0, "Année 2": 0, "Année 3": 0, "Année 4": 0, "Année 5": 0},
+        {"Rubrique": "Autres créances (jours)", "Année 1": 30, "Année 2": 30, "Année 3": 30, "Année 4": 30, "Année 5": 30},
+        {"Rubrique": "Dettes fournisseurs (jours)", "Année 1": 60, "Année 2": 60, "Année 3": 60, "Année 4": 60, "Année 5": 60},
+        {"Rubrique": "Autres dettes (jours)", "Année 1": 30, "Année 2": 30, "Année 3": 30, "Année 4": 30, "Année 5": 30},
+    ])
+
+
+def build_default_taxes_table():
+    return pd.DataFrame([
+        {"Rubrique": "IS", "Année 1": 0.20, "Année 2": 0.20, "Année 3": 0.20, "Année 4": 0.20, "Année 5": 0.20},
+        {"Rubrique": "Taxe services communaux", "Année 1": 0.105, "Année 2": 0.105, "Année 3": 0.105, "Année 4": 0.105, "Année 5": 0.105},
+        {"Rubrique": "Taxe professionnelle", "Année 1": 0.20, "Année 2": 0.20, "Année 3": 0.20, "Année 4": 0.20, "Année 5": 0.20},
+        {"Rubrique": "Droits d'enregistrement / timbre", "Année 1": 0.0025, "Année 2": 0.0025, "Année 3": 0.0025, "Année 4": 0.0025, "Année 5": 0.0025},
+        {"Rubrique": "Taxe enseigne", "Année 1": 200000.0, "Année 2": 200000.0, "Année 3": 200000.0, "Année 4": 200000.0, "Année 5": 200000.0},
+        {"Rubrique": "Charges non courantes (% du CA)", "Année 1": 0.001, "Année 2": 0.001, "Année 3": 0.001, "Année 4": 0.001, "Année 5": 0.001},
+    ])
+
+
+def ensure_state():
+    defaults = {
+        "investments_df": build_default_investments(),
+        "financing_df": build_default_financing(),
+        "leasing_df": build_default_leasing(),
+        "fixed_df": build_default_fixed_charges(),
+        "salary_df": build_default_salary_table(),
+        "ca_df": build_default_ca_table(),
+        "monthly_dist_df": build_default_monthly_distribution(),
+        "bfr_days_df": build_default_bfr_days(),
+        "taxes_df": build_default_taxes_table(),
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+ensure_state()
+
+# =========================================================
+# SIDEBAR
+# =========================================================
+with st.sidebar:
+    if LOGO_PATH and LOGO_PATH.exists():
+        st.image(str(LOGO_PATH), width=170)
+    else:
+        st.warning("Logo introuvable dans assets/logo.png")
+
+    st.markdown("## Paramètres généraux")
+    project_name = st.text_input("Nom du projet", value="Clinique Multidisciplinaire")
+    project_holder = st.text_input("Porteur du projet", value="Société CLINIQUE CAMILIA")
+    legal_status = st.selectbox(
+        "Statut juridique",
+        ["Micro-entreprise", "Entreprise individuelle au réel (IR)", "EURL (IS)", "SARL (IS)", "SAS (IS)", "SASU (IS)", "Autre"]
+    )
+    activity_nature = st.selectbox(
+        "Nature de l'activité",
+        ["Services", "Marchandises", "Mixte"]
+    )
+    city = st.text_input("Ville / commune", value="ERRAHMA")
+    phone = st.text_input("Téléphone", value="")
+    email = st.text_input("E-mail", value="")
+    months_activity_y1 = st.number_input("Mois d'activité année 1", min_value=1, max_value=12, value=8)
+    employer_social_rate = st.number_input("Taux charges sociales employeur (%)", min_value=0.0, value=21.09, step=0.1) / 100
+    amo_share = st.number_input("Part CA couverte AMO (%)", min_value=0.0, max_value=100.0, value=80.0, step=1.0) / 100
+    private_share = st.number_input("Part CA couverte assurances privées (%)", min_value=0.0, max_value=100.0, value=10.0, step=1.0) / 100
+    uninsured_share = st.number_input("Part CA sans couverture (%)", min_value=0.0, max_value=100.0, value=10.0, step=1.0) / 100
+    cash_share = st.number_input("Part encaissée en espèces (%)", min_value=0.0, max_value=100.0, value=5.0, step=1.0) / 100
+    cheque_share = st.number_input("Part encaissée par chèque (%)", min_value=0.0, max_value=100.0, value=3.0, step=1.0) / 100
+    card_share = st.number_input("Part encaissée par carte (%)", min_value=0.0, max_value=100.0, value=2.0, step=1.0) / 100
+    auto_exempt_prof_tax = st.checkbox("Exonération taxe professionnelle sur 5 ans", value=True)
+    st.caption("Les tableaux du plan financier se remplissent automatiquement à partir des données saisies ci-dessous.")
+
+# =========================================================
+# HERO
+# =========================================================
+st.markdown(
+    """
+    <div style="
+        background: linear-gradient(135deg, #0f4c81 0%, #2f7cc0 55%, #57b4d3 100%);
+        border-radius: 24px;
+        padding: 26px 28px;
+        color: white;
+        box-shadow: 0 14px 35px rgba(8, 41, 77, 0.18);
+        border: 1px solid rgba(255,255,255,0.22);
+        margin-bottom: 14px;
+    ">
+        <div style="font-size:16px; font-weight:700; margin-bottom:8px;">
+            EDDAQAQ EXPERTISES
+        </div>
+        <div style="font-size:38px; font-weight:800; line-height:1.2; margin-bottom:8px;">
+            Étude financière prévisionnelle sur 5 ans
+        </div>
+        <div style="font-size:16px; opacity:0.95;">
+            Clinique Multidisciplinaire – Société CLINIQUE CAMILIA
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# =========================================================
+# TABS
+# =========================================================
+tab_input, tab_print, tab_report, tab_calc, tab_export = st.tabs([
+    "1. Données à saisir",
+    "2. Plan financier à imprimer",
+    "3. Contrôle global & analyse",
+    "4. Base de calculs / KPI",
+    "5. Exports Excel / PDF",
+])
+
+# =========================================================
+# INPUT TAB
+# =========================================================
+with tab_input:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">A. Identité du projet</div>', unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.text_input("Nom / raison sociale", value=project_holder, disabled=True, key="id_holder")
+    with c2:
+        st.text_input("Projet / activité", value=project_name, disabled=True, key="id_project")
+    with c3:
+        st.text_input("Ville", value=city, disabled=True, key="id_city")
+    with c4:
+        st.text_input("Statut juridique", value=legal_status, disabled=True, key="id_legal")
+    st.markdown("<p class='sub-note'>Cette zone est reprise automatiquement dans les exports et le rapport.</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">B. Besoins de démarrage</div>', unsafe_allow_html=True)
+    st.markdown("<p class='sub-note'>Renseigne ici uniquement les montants et les durées. L’amortissement, la synthèse investissements et le plan de financement se calculent automatiquement.</p>", unsafe_allow_html=True)
+    investments_df = st.data_editor(
+        st.session_state["investments_df"],
+        use_container_width=True,
+        num_rows="dynamic",
+        key="editor_investments"
+    )
+    st.session_state["investments_df"] = investments_df
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">C. Financement du projet</div>', unsafe_allow_html=True)
+    financing_df = st.data_editor(
+        st.session_state["financing_df"],
+        use_container_width=True,
+        num_rows="dynamic",
+        key="editor_financing",
+        column_config={
+            "Type": st.column_config.SelectboxColumn(
+                "Type",
+                options=["Fonds propres", "Quasi-fonds propres", "Emprunt", "Subvention", "Autre"]
+            )
+        }
+    )
+    st.session_state["financing_df"] = financing_df
+    st.markdown("<p class='sub-note'>Pour les lignes de type Emprunt, renseigne le montant, le taux, la durée en mois et le différé éventuel.</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">D. Contrats de crédit-bail / leasing</div>', unsafe_allow_html=True)
+    leasing_df = st.data_editor(
+        st.session_state["leasing_df"],
+        use_container_width=True,
+        num_rows="dynamic",
+        key="editor_leasing"
+    )
+    st.session_state["leasing_df"] = leasing_df
+    st.markdown("<p class='sub-note'>L’outil calcule automatiquement les redevances annuelles par année à partir des mensualités TTC.</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">E. Salaires et charges sociales</div>', unsafe_allow_html=True)
+    salary_df = st.data_editor(
+        st.session_state["salary_df"],
+        use_container_width=True,
+        num_rows="dynamic",
+        key="editor_salary"
+    )
+    st.session_state["salary_df"] = salary_df
+    st.markdown("<p class='sub-note'>Saisir le salaire brut mensuel et l’effectif par année. La masse salariale et les charges sociales se calculent seules.</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">F. Charges fixes hors salaires</div>', unsafe_allow_html=True)
+    fixed_df = st.data_editor(
+        st.session_state["fixed_df"],
+        use_container_width=True,
+        num_rows="dynamic",
+        key="editor_fixed"
+    )
+    st.session_state["fixed_df"] = fixed_df
+    st.markdown("<p class='sub-note'>Tu peux modifier directement chaque année. Donc pas d’inversion lignes/colonnes dans le résultat final.</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">G. Chiffre d’affaires prévisionnel</div>', unsafe_allow_html=True)
+    ca_df = st.data_editor(
+        st.session_state["ca_df"],
+        use_container_width=True,
+        num_rows="dynamic",
+        key="editor_ca"
+    )
+    st.session_state["ca_df"] = ca_df
+
+    dist_df = st.data_editor(
+        st.session_state["monthly_dist_df"],
+        use_container_width=True,
+        key="editor_month_dist"
+    )
+    st.session_state["monthly_dist_df"] = dist_df
+    st.markdown("<p class='sub-note'>Le CA années 2 à 5 est calculé automatiquement à partir des croissances. La répartition mensuelle sert au budget de trésorerie de l’année 1.</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">H. Charges variables & BFR</div>', unsafe_allow_html=True)
+
+        goods_purchase_rate = st.number_input("Coût d’achat marchandises / CA marchandises (%)", min_value=0.0, value=57.0, step=1.0) / 100
+        medical_consumables_rate = st.number_input("Consommables médicaux / CA services (%)", min_value=0.0, value=20.0, step=1.0) / 100
+        office_supplies_rate = st.number_input("Fournitures bureau / CA total (%)", min_value=0.0, value=2.0, step=0.5) / 100
+        other_variable_rate = st.number_input("Autres variables / CA total (%)", min_value=0.0, value=0.0, step=0.5) / 100
+
+        bfr_days_df = st.data_editor(
+            st.session_state["bfr_days_df"],
+            use_container_width=True,
+            key="editor_bfr_days"
+        )
+        st.session_state["bfr_days_df"] = bfr_days_df
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with cc2:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">I. Impôts, taxes et paramètres</div>', unsafe_allow_html=True)
+        taxes_df = st.data_editor(
+            st.session_state["taxes_df"],
+            use_container_width=True,
+            key="editor_taxes"
+        )
+        st.session_state["taxes_df"] = taxes_df
+
+        waste_kg_month = st.number_input("Déchets médicaux (kg / mois)", min_value=0.0, value=3500.0, step=100.0)
+        waste_cost_per_kg = st.number_input("Coût traitement déchets par kg", min_value=0.0, value=6.0, step=0.5)
+        locative_base_y1 = st.number_input("Base valeur locative fiscale année 1", min_value=0.0, value=967600.0, step=1000.0)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# =========================================================
+# CALCULS
+# =========================================================
+investments_df = st.session_state["investments_df"].copy()
+financing_df = st.session_state["financing_df"].copy()
+leasing_df = st.session_state["leasing_df"].copy()
+salary_df = st.session_state["salary_df"].copy()
+fixed_df = st.session_state["fixed_df"].copy()
+ca_df = st.session_state["ca_df"].copy()
+dist_df = st.session_state["monthly_dist_df"].copy()
+bfr_days_df = st.session_state["bfr_days_df"].copy()
+taxes_df = st.session_state["taxes_df"].copy()
+
+for df in [investments_df, financing_df, leasing_df, salary_df, fixed_df, ca_df, dist_df, bfr_days_df, taxes_df]:
+    for col in df.columns:
+        if col not in ["Rubrique", "Source", "Type", "Contrat", "Poste", "Mois"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+
+investment_rows = []
+amort_rows = []
+amort_totals = [0.0] * 5
+
+cash_start_need = 0.0
+capex_total_excl_cash = 0.0
+total_startup_needs = 0.0
+
+for _, r in investments_df.iterrows():
+    label = str(r["Rubrique"])
+    amount = n(r["Montant"])
+    duration = i(r["Durée amort. (ans)"], 0)
+
+    total_startup_needs += amount
+
+    if label.strip().lower() == "trésorerie de départ":
+        cash_start_need += amount
+    else:
+        capex_total_excl_cash += amount
+
+    investment_rows.append({"Rubrique": label, "Montant": amount})
+
+    amort_values = linear_amortization(amount, duration, 5) if duration > 0 else [0.0] * 5
+    for idx in range(5):
+        amort_totals[idx] += amort_values[idx]
+
+    amort_row = {"Rubrique": label, "Montant": amount, "Durée amort. (ans)": duration}
+    for idx, y in enumerate(YEAR_LABELS):
+        amort_row[y] = amort_values[idx]
+    amort_rows.append(amort_row)
+
+df_invest = pd.DataFrame(investment_rows)
+df_amort = pd.DataFrame(amort_rows)
+
+total_resources = financing_df["Montant"].sum()
+
+loan_annual_list = []
+loan_monthly_list = []
+for _, r in financing_df.iterrows():
+    if str(r["Type"]) == "Emprunt" and n(r["Montant"]) > 0:
+        annual_df, monthly_df = build_loan_schedule(
+            principal=n(r["Montant"]),
+            annual_rate=n(r["Taux annuel"]),
+            months=i(r["Durée (mois)"]),
+            deferment_months=i(r["Différé (mois)"]),
+            projection_years=5,
+            name=str(r["Source"])
+        )
+        loan_annual_list.append(annual_df)
+        loan_monthly_list.append(monthly_df)
+
+if loan_annual_list:
+    loans_annual_detail = pd.concat(loan_annual_list, ignore_index=True)
+    loans_monthly_detail = pd.concat(loan_monthly_list, ignore_index=True)
+else:
+    loans_annual_detail = pd.DataFrame(columns=["Source", "Année", "Mensualité", "Annuité", "Intérêts", "Remboursement capital", "Capital restant dû"])
+    loans_monthly_detail = pd.DataFrame(columns=["Source", "Mois_index", "Année", "Mensualité", "Intérêts", "Remboursement capital", "Capital restant dû"])
+
+loan_summary = []
+for y in YEAR_NUMS:
+    tmp = loans_annual_detail[loans_annual_detail["Année"] == y] if not loans_annual_detail.empty else pd.DataFrame()
+    loan_summary.append({
+        "Année": y,
+        "Mensualité": tmp["Mensualité"].sum() if not tmp.empty else 0.0,
+        "Annuité": tmp["Annuité"].sum() if not tmp.empty else 0.0,
+        "Intérêts": tmp["Intérêts"].sum() if not tmp.empty else 0.0,
+        "Remboursement capital": tmp["Remboursement capital"].sum() if not tmp.empty else 0.0,
+        "Capital restant dû": tmp["Capital restant dû"].sum() if not tmp.empty else 0.0,
+    })
+df_loans = pd.DataFrame(loan_summary)
+
+leasing_annual = {y: 0.0 for y in YEAR_NUMS}
+for _, r in leasing_df.iterrows():
+    start_month = max(1, i(r["Mois de départ"], 1))
+    nb_months = i(r["Nombre de mois"])
+    monthly_ttc = n(r["Redevance mensuelle TTC"])
+    for m in range(start_month, start_month + nb_months):
+        year = math.ceil(m / 12)
+        if year in leasing_annual:
+            leasing_annual[year] += monthly_ttc
+
+leasing_year_values = [leasing_annual[y] for y in YEAR_NUMS]
+
+if "Redevances crédit-bail" in fixed_df["Rubrique"].astype(str).tolist():
+    fixed_df.loc[fixed_df["Rubrique"].astype(str) == "Redevances crédit-bail", YEAR_LABELS] = leasing_year_values
+else:
+    new_row = {"Rubrique": "Redevances crédit-bail"}
+    for idx, y in enumerate(YEAR_LABELS):
+        new_row[y] = leasing_year_values[idx]
+    fixed_df = pd.concat([fixed_df, pd.DataFrame([new_row])], ignore_index=True)
+
+salary_detail_rows = []
+salary_year_totals_gross = [0.0] * 5
+salary_year_totals_social = [0.0] * 5
+salary_year_totals_total = [0.0] * 5
+
+for _, r in salary_df.iterrows():
+    row = {"Rubrique": str(r["Poste"])}
+    brut_mensuel = n(r["Salaire brut mensuel"])
+
+    for idx, y in enumerate(YEAR_LABELS):
+        headcount = n(r[y])
+        gross_year = brut_mensuel * headcount * 12
+        if idx == 0:
+            gross_year *= (months_activity_y1 / 12)
+        social_year = gross_year * employer_social_rate
+        total_year = gross_year + social_year
+
+        row[y] = total_year
+
+        salary_year_totals_gross[idx] += gross_year
+        salary_year_totals_social[idx] += social_year
+        salary_year_totals_total[idx] += total_year
+
+    salary_detail_rows.append(row)
+
+df_salary_detail = pd.DataFrame(salary_detail_rows)
+df_salary_summary = to_year_columns_df({
+    "Salaires bruts": salary_year_totals_gross,
+    "Charges sociales": salary_year_totals_social,
+    "Total salaires + charges": salary_year_totals_total,
+}, first_col_name="Rubrique")
+
+fixed_total_years = []
+for y in YEAR_LABELS:
+    fixed_total_years.append(fixed_df[y].sum())
+
+ca_years_goods = [0.0] * 5
+ca_years_services = [0.0] * 5
+ca_detail_rows = []
+
+for _, r in ca_df.iterrows():
+    label = str(r["Rubrique"])
+    y1 = n(r["Année 1"])
+    g2 = n(r["Croissance A2"])
+    g3 = n(r["Croissance A3"])
+    g4 = n(r["Croissance A4"])
+    g5 = n(r["Croissance A5"])
+    series = growth_series(y1, [g2, g3, g4, g5])
+
+    detail_row = {"Rubrique": label}
+    for idx, y in enumerate(YEAR_LABELS):
+        detail_row[y] = series[idx]
+
+    if "marchandise" in label.lower():
+        for idx in range(5):
+            ca_years_goods[idx] += series[idx]
+    else:
+        for idx in range(5):
+            ca_years_services[idx] += series[idx]
+
+    ca_detail_rows.append(detail_row)
+
+df_ca_detail = pd.DataFrame(ca_detail_rows)
+ca_total_years = [ca_years_goods[i] + ca_years_services[i] for i in range(5)]
+
+df_ca_summary = to_year_columns_df({
+    "CA marchandises": ca_years_goods,
+    "CA services": ca_years_services,
+    "CA total": ca_total_years,
+}, first_col_name="Rubrique")
+
+growth_total = [0.0]
+for iyr in range(1, 5):
+    growth_total.append(safe_div(ca_total_years[iyr] - ca_total_years[iyr - 1], ca_total_years[iyr - 1]))
+
+goods_purchases = [v * goods_purchase_rate for v in ca_years_goods]
+medical_consumables = [v * medical_consumables_rate for v in ca_years_services]
+office_supplies = [v * office_supplies_rate for v in ca_total_years]
+other_variable = [v * other_variable_rate for v in ca_total_years]
+waste_processing = [waste_kg_month * waste_cost_per_kg * 12 for _ in YEAR_NUMS]
+
+variable_total = []
+for idx in range(5):
+    variable_total.append(
+        goods_purchases[idx]
+        + medical_consumables[idx]
+        + office_supplies[idx]
+        + other_variable[idx]
+        + waste_processing[idx]
+    )
+
+df_variable_summary = to_year_columns_df({
+    "Achats revendus marchandises": goods_purchases,
+    "Consommables médicaux": medical_consumables,
+    "Fournitures bureau variables": office_supplies,
+    "Autres variables": other_variable,
+    "Traitement déchets médicaux": waste_processing,
+    "Total charges variables": variable_total,
+}, first_col_name="Rubrique")
+
+tax_map = {}
+for _, r in taxes_df.iterrows():
+    tax_map[str(r["Rubrique"])] = [n(r[y]) for y in YEAR_LABELS]
+
+is_rates = tax_map.get("IS", [0.20] * 5)
+tsc_rates = tax_map.get("Taxe services communaux", [0.105] * 5)
+prof_tax_rates = tax_map.get("Taxe professionnelle", [0.20] * 5)
+stamp_rates = tax_map.get("Droits d'enregistrement / timbre", [0.0025] * 5)
+sign_tax_values = tax_map.get("Taxe enseigne", [200000.0] * 5)
+non_current_rates = tax_map.get("Charges non courantes (% du CA)", [0.001] * 5)
+
+locative_base_years = growth_series(locative_base_y1, [0.0, 0.0, 0.0, 0.0])
+tsc_values = [locative_base_years[i] * tsc_rates[i] for i in range(5)]
+if auto_exempt_prof_tax:
+    prof_tax_values = [0.0] * 5
+else:
+    prof_tax_values = [locative_base_years[i] * prof_tax_rates[i] for i in range(5)]
+
+cash_collected_base = [ca_total_years[i] * cash_share for i in range(5)]
+stamp_values = [cash_collected_base[i] * stamp_rates[i] for i in range(5)]
+non_current_values = [ca_total_years[i] * non_current_rates[i] for i in range(5)]
+
+df_taxes_summary = to_year_columns_df({
+    "Taxe services communaux": tsc_values,
+    "Taxe professionnelle": prof_tax_values,
+    "Droits d'enregistrement / timbre": stamp_values,
+    "Taxe enseigne": sign_tax_values,
+    "Charges non courantes": non_current_values,
+}, first_col_name="Rubrique")
+
+df_charge_summary = to_year_columns_df({
+    "Salaires + charges": salary_year_totals_total,
+    "Charges fixes hors salaires": fixed_total_years,
+    "Taxes et redevances": [tsc_values[i] + prof_tax_values[i] + stamp_values[i] + sign_tax_values[i] for i in range(5)],
+    "Charges non courantes": non_current_values,
+    "Charges variables": variable_total,
+    "Amortissements": amort_totals,
+    "Charges financières": [n(v) for v in df_loans["Intérêts"].tolist()] if not df_loans.empty else [0.0] * 5,
+    "Total charges": [
+        variable_total[i]
+        + fixed_total_years[i]
+        + salary_year_totals_total[i]
+        + tsc_values[i]
+        + prof_tax_values[i]
+        + stamp_values[i]
+        + sign_tax_values[i]
+        + non_current_values[i]
+        + amort_totals[i]
+        + (df_loans["Intérêts"].tolist()[i] if not df_loans.empty else 0.0)
+        for i in range(5)
+    ],
+}, first_col_name="Rubrique")
+
+bfr_days_map = {}
+for _, r in bfr_days_df.iterrows():
+    bfr_days_map[str(r["Rubrique"])] = [n(r[y]) for y in YEAR_LABELS]
+
+stock_days = bfr_days_map.get("Stock (jours d'achats)", [15] * 5)
+amo_days = bfr_days_map.get("Créances AMO (jours)", [120] * 5)
+priv_days = bfr_days_map.get("Créances privées (jours)", [120] * 5)
+uncov_days = bfr_days_map.get("Créances sans couverture (jours)", [0] * 5)
+other_recv_days = bfr_days_map.get("Autres créances (jours)", [30] * 5)
+supplier_days = bfr_days_map.get("Dettes fournisseurs (jours)", [60] * 5)
+other_pay_days = bfr_days_map.get("Autres dettes (jours)", [30] * 5)
+
+bfr_values = []
+delta_bfr = []
+for idx in range(5):
+    purchases_base = goods_purchases[idx] + medical_consumables[idx] + office_supplies[idx] + other_variable[idx]
+    stock_component = purchases_base * stock_days[idx] / 365
+    amo_component = ca_total_years[idx] * amo_share * amo_days[idx] / 365
+    priv_component = ca_total_years[idx] * private_share * priv_days[idx] / 365
+    uncov_component = ca_total_years[idx] * uninsured_share * uncov_days[idx] / 365
+    other_recv_component = ca_total_years[idx] * other_recv_days[idx] / 365
+    supplier_component = purchases_base * supplier_days[idx] / 365
+    other_pay_component = purchases_base * other_pay_days[idx] / 365
+
+    bfr = stock_component + amo_component + priv_component + uncov_component + other_recv_component - supplier_component - other_pay_component
+    bfr_values.append(bfr)
+
+for idx in range(5):
+    if idx == 0:
+        delta_bfr.append(bfr_values[0])
+    else:
+        delta_bfr.append(bfr_values[idx] - bfr_values[idx - 1])
+
+startup_purchases = (variable_total[0] / 12) * 3
+startup_rent = 0.0
+if "Loyer et charges locatives" in fixed_df["Rubrique"].astype(str).tolist():
+    startup_rent = fixed_df.loc[fixed_df["Rubrique"].astype(str) == "Loyer et charges locatives", "Année 1"].sum() / 12 * 3
+startup_payroll = salary_year_totals_total[0] / max(months_activity_y1, 1) * 3
+startup_leasing = leasing_year_values[0] / 12
+bfr_startup_total = startup_purchases + startup_rent + startup_payroll + startup_leasing
+
+df_bfr_startup = pd.DataFrame([
+    {"Rubrique": "Achats (3 mois)", "Montant": startup_purchases},
+    {"Rubrique": "Loyers (3 mois)", "Montant": startup_rent},
+    {"Rubrique": "Salaires et charges (3 mois)", "Montant": startup_payroll},
+    {"Rubrique": "Redevances crédit-bail (1 mois)", "Montant": startup_leasing},
+    {"Rubrique": "TOTAL BFR DE DÉMARRAGE", "Montant": bfr_startup_total},
+])
+
+df_bfr = to_year_columns_df({
+    "BFR exploitation": bfr_values,
+    "Variation BFR": delta_bfr,
+}, first_col_name="Rubrique")
+
+financial_interest = df_loans["Intérêts"].tolist() if not df_loans.empty else [0.0] * 5
+financial_principal = df_loans["Remboursement capital"].tolist() if not df_loans.empty else [0.0] * 5
+annual_debt_service = df_loans["Annuité"].tolist() if not df_loans.empty else [0.0] * 5
+
+gross_margin = [ca_total_years[i] - variable_total[i] for i in range(5)]
+ebitda = [gross_margin[i] - (fixed_total_years[i] + salary_year_totals_total[i] + tsc_values[i] + prof_tax_values[i] + stamp_values[i] + sign_tax_values[i] + non_current_values[i]) for i in range(5)]
+ebit = [ebitda[i] - amort_totals[i] for i in range(5)]
+pre_tax = [ebit[i] - financial_interest[i] for i in range(5)]
+solidarity_values = [max(pre_tax[i], 0.0) * solidarity_rate(pre_tax[i]) for i in range(5)]
+is_values = [max(pre_tax[i], 0.0) * is_rates[i] for i in range(5)]
+net_income = [pre_tax[i] - is_values[i] - solidarity_values[i] for i in range(5)]
+caf_values = [net_income[i] + amort_totals[i] for i in range(5)]
+
+excess_or_gap = total_resources - (total_startup_needs + bfr_startup_total)
+initial_cash_balance = cash_start_need + max(excess_or_gap, 0.0)
+
+net_cash_flow = []
+ending_cash = []
+cash_balance = initial_cash_balance
+
+for iyr in range(5):
+    invest_out = capex_total_excl_cash if iyr == 0 else 0.0
+    start_bfr_out = bfr_startup_total if iyr == 0 else 0.0
+    financing_in = total_resources if iyr == 0 else 0.0
+
+    flow = caf_values[iyr] - delta_bfr[iyr] - financial_principal[iyr] - invest_out - start_bfr_out + financing_in - solidarity_values[iyr]
+    cash_balance += flow
+    net_cash_flow.append(flow)
+    ending_cash.append(cash_balance)
+
+df_pnl = to_year_columns_df({
+    "CA marchandises": ca_years_goods,
+    "CA services": ca_years_services,
+    "CA total": ca_total_years,
+    "Charges variables": variable_total,
+    "Marge brute": gross_margin,
+    "Taux marge brute": [safe_div(gross_margin[i], ca_total_years[i]) for i in range(5)],
+    "Charges fixes hors amort.": [fixed_total_years[i] + salary_year_totals_total[i] + tsc_values[i] + prof_tax_values[i] + stamp_values[i] + sign_tax_values[i] + non_current_values[i] for i in range(5)],
+    "EBITDA": ebitda,
+    "Marge EBITDA": [safe_div(ebitda[i], ca_total_years[i]) for i in range(5)],
+    "Amortissements": amort_totals,
+    "EBIT": ebit,
+    "Charges financières": financial_interest,
+    "Résultat avant impôt": pre_tax,
+    "IS": is_values,
+    "Taxe de solidarité": solidarity_values,
+    "Résultat net": net_income,
+    "Marge nette": [safe_div(net_income[i], ca_total_years[i]) for i in range(5)],
+}, first_col_name="Rubrique")
+
+df_cashflow = to_year_columns_df({
+    "CAF": caf_values,
+    "Variation BFR": delta_bfr,
+    "Remboursement capital": financial_principal,
+    "Investissements initiaux": [capex_total_excl_cash, 0, 0, 0, 0],
+    "BFR de démarrage": [bfr_startup_total, 0, 0, 0, 0],
+    "Ressources initiales": [total_resources, 0, 0, 0, 0],
+    "Flux net de trésorerie": net_cash_flow,
+    "Trésorerie fin d'année": ending_cash,
+}, first_col_name="Rubrique")
+
+df_funding_plan = to_year_columns_df({
+    "Investissements": [capex_total_excl_cash, 0, 0, 0, 0],
+    "Trésorerie de départ": [cash_start_need, 0, 0, 0, 0],
+    "BFR de démarrage": [bfr_startup_total, 0, 0, 0, 0],
+    "BFR exploitation": bfr_values,
+    "Variation BFR": delta_bfr,
+    "CAF": caf_values,
+    "Remboursement capital": financial_principal,
+    "Flux net": net_cash_flow,
+    "Trésorerie fin d'année": ending_cash,
+}, first_col_name="Rubrique")
+
+df_funding_structure = pd.DataFrame([
+    {"Rubrique": "Total besoins de démarrage", "Montant": total_startup_needs},
+    {"Rubrique": "BFR de démarrage", "Montant": bfr_startup_total},
+    {"Rubrique": "TOTAL BESOINS", "Montant": total_startup_needs + bfr_startup_total},
+    {"Rubrique": "TOTAL RESSOURCES", "Montant": total_resources},
+    {"Rubrique": "Excédent / Déficit", "Montant": excess_or_gap},
+])
+
+fixed_for_break_even = [fixed_total_years[i] + salary_year_totals_total[i] + tsc_values[i] + prof_tax_values[i] + stamp_values[i] + sign_tax_values[i] + non_current_values[i] for i in range(5)]
+tmcv = [max(1 - safe_div(variable_total[i], max(ca_total_years[i], 1.0)), 0.0001) for i in range(5)]
+break_even_values = [fixed_for_break_even[i] / tmcv[i] for i in range(5)]
+safety_margin_values = [ca_total_years[i] - break_even_values[i] for i in range(5)]
+safety_margin_pct = [safe_div(safety_margin_values[i], ca_total_years[i]) for i in range(5)]
+
+df_break_even = to_year_columns_df({
+    "Charges fixes pour SR": fixed_for_break_even,
+    "TMCV": tmcv,
+    "Seuil de rentabilité": break_even_values,
+    "Marge de sécurité": safety_margin_values,
+    "Marge de sécurité %": safety_margin_pct,
+}, first_col_name="Rubrique")
+
+value_added = [
+    gross_margin[i] - (
+        fixed_df.loc[fixed_df["Rubrique"].isin(["Téléphone / internet", "Autres abonnements", "Fournitures diverses"]), YEAR_LABELS[i]].sum()
+        if not fixed_df.empty else 0.0
+    )
+    for i in range(5)
+]
+
+df_sig = to_year_columns_df({
+    "Marge commerciale": [ca_years_goods[i] - goods_purchases[i] for i in range(5)],
+    "Production de l'exercice": ca_years_services,
+    "Valeur ajoutée": value_added,
+    "EBE": ebitda,
+    "Résultat d'exploitation": ebit,
+    "Résultat courant": pre_tax,
+    "Résultat net": net_income,
+}, first_col_name="Rubrique")
+
+goods_y1 = ca_years_goods[0]
+services_y1 = ca_years_services[0]
+
+dist_goods = normalize_percent_list(dist_df["% CA marchandises"].tolist())
+dist_services = normalize_percent_list(dist_df["% CA services"].tolist())
+
+monthly_goods = goods_y1 * dist_goods
+monthly_services = services_y1 * dist_services
+monthly_total_sales = monthly_goods + monthly_services
+
+monthly_variable = (
+    monthly_goods * goods_purchase_rate
+    + monthly_services * medical_consumables_rate
+    + monthly_total_sales * office_supplies_rate
+    + monthly_total_sales * other_variable_rate
+    + np.array([waste_kg_month * waste_cost_per_kg] * 12)
+)
+
+monthly_fixed_disbursed = (
+    (fixed_total_years[0] + salary_year_totals_total[0] + tsc_values[0] + prof_tax_values[0] + stamp_values[0] + sign_tax_values[0] + non_current_values[0]) / 12
+)
+
+monthly_interest_y1 = financial_interest[0] / 12 if len(financial_interest) > 0 else 0.0
+monthly_principal_y1 = financial_principal[0] / 12 if len(financial_principal) > 0 else 0.0
+monthly_amort_y1 = amort_totals[0] / 12
+
+client_delay_days = amo_days[0]
+supplier_delay_days = supplier_days[0]
+
+client_delay_months = int(round(client_delay_days / 30))
+supplier_delay_months = int(round(supplier_delay_days / 30))
+
+treasury_rows = []
+cash_month = initial_cash_balance
+
+for im, month in enumerate(MONTH_LABELS):
+    collected = monthly_total_sales[im] if client_delay_months == 0 else (monthly_total_sales[im - client_delay_months] if im - client_delay_months >= 0 else 0.0)
+    paid_var = monthly_variable[im] if supplier_delay_months == 0 else (monthly_variable[im - supplier_delay_months] if im - supplier_delay_months >= 0 else 0.0)
+
+    net_m = collected - paid_var - monthly_fixed_disbursed - monthly_interest_y1 - monthly_principal_y1
+    cash_month += net_m
+
+    treasury_rows.append({
+        "Mois": month,
+        "Encaissements": collected,
+        "Charges variables décaissées": paid_var,
+        "Charges fixes décaissées": monthly_fixed_disbursed,
+        "Intérêts": monthly_interest_y1,
+        "Remboursement capital": monthly_principal_y1,
+        "Amortissements non décaissés": monthly_amort_y1,
+        "Flux net mensuel": net_m,
+        "Trésorerie fin de mois": cash_month,
+    })
+
+df_monthly_treasury = pd.DataFrame(treasury_rows)
+
+diagnostic = []
+
+if net_income[0] > 0:
+    diagnostic.append(("good", f"Le projet est bénéficiaire dès l'année 1 avec un résultat net de {fmt_mad(net_income[0])}."))
+elif len(net_income) > 1 and net_income[1] > 0:
+    diagnostic.append(("warn", f"Le projet devient bénéficiaire en année 2 avec un résultat net de {fmt_mad(net_income[1])}."))
+else:
+    diagnostic.append(("risk", "Le projet reste déficitaire au démarrage. Il faut revoir le chiffre d'affaires, les charges ou la structure de financement."))
+
+if excess_or_gap >= 0:
+    diagnostic.append(("good", f"Le financement couvre les besoins initiaux avec un excédent de {fmt_mad(excess_or_gap)}."))
+else:
+    diagnostic.append(("risk", f"Le financement initial présente un déficit de {fmt_mad(abs(excess_or_gap))}."))
+
+if df_monthly_treasury["Trésorerie fin de mois"].min() < 0:
+    diagnostic.append(("risk", f"La trésorerie mensuelle passe en négatif avec un point bas de {fmt_mad(df_monthly_treasury['Trésorerie fin de mois'].min())}."))
+else:
+    diagnostic.append(("good", "La trésorerie mensuelle reste positive sur l'année 1."))
+
+if safety_margin_pct[0] >= 0.15:
+    diagnostic.append(("good", f"La marge de sécurité de l'année 1 ressort à {fmt_pct(safety_margin_pct[0])}, ce qui est confortable."))
+elif safety_margin_pct[0] >= 0.05:
+    diagnostic.append(("warn", f"La marge de sécurité de l'année 1 est correcte mais à surveiller : {fmt_pct(safety_margin_pct[0])}."))
+else:
+    diagnostic.append(("risk", f"La marge de sécurité de l'année 1 est faible : {fmt_pct(safety_margin_pct[0])}."))
+
+if annual_debt_service[0] > 0 and safe_div(annual_debt_service[0], ca_total_years[0]) > 0.20:
+    diagnostic.append(("risk", "Le service de la dette pèse lourdement sur le CA année 1."))
+elif annual_debt_service[0] > 0 and safe_div(annual_debt_service[0], ca_total_years[0]) > 0.10:
+    diagnostic.append(("warn", "Le service de la dette est significatif et doit être suivi de près."))
+else:
+    diagnostic.append(("good", "Le poids annuel de la dette reste maîtrisable par rapport au chiffre d'affaires."))
+
+df_invest_summary = pd.DataFrame([
+    {"Rubrique": "Investissements hors trésorerie de départ", "Montant": capex_total_excl_cash},
+    {"Rubrique": "Trésorerie de départ", "Montant": cash_start_need},
+    {"Rubrique": "TOTAL besoins de démarrage", "Montant": total_startup_needs},
+])
+
+df_financing_sources = financing_df[["Source", "Type", "Montant"]].copy()
+
+df_formula_reference = pd.DataFrame([
+    {"Rubrique": "CA total", "Formule / logique": "CA marchandises + CA services", "Variables utilisées": "ca_years_goods + ca_years_services", "Commentaire": "Chiffre d'affaires global annuel"},
+    {"Rubrique": "Charges variables", "Formule / logique": "Achats revendus + consommables médicaux + fournitures bureau variables + autres variables + déchets médicaux", "Variables utilisées": "goods_purchases + medical_consumables + office_supplies + other_variable + waste_processing", "Commentaire": "Charges directement liées au niveau d'activité"},
+    {"Rubrique": "Marge brute", "Formule / logique": "CA total - Charges variables", "Variables utilisées": "ca_total_years - variable_total", "Commentaire": "Marge après charges variables"},
+    {"Rubrique": "Taux marge brute", "Formule / logique": "Marge brute / CA total", "Variables utilisées": "gross_margin / ca_total_years", "Commentaire": "Indicateur de profitabilité brute"},
+    {"Rubrique": "Salaires bruts annuels", "Formule / logique": "Salaire brut mensuel × effectif × 12 (prorata Année 1 selon mois d'activité)", "Variables utilisées": "brut_mensuel × effectif × 12 × prorata", "Commentaire": "Base du coût salarial"},
+    {"Rubrique": "Charges sociales", "Formule / logique": "Salaires bruts annuels × taux charges sociales employeur", "Variables utilisées": "gross_year × employer_social_rate", "Commentaire": "Charges patronales"},
+    {"Rubrique": "Total salaires + charges", "Formule / logique": "Salaires bruts + charges sociales", "Variables utilisées": "salary_year_totals_gross + salary_year_totals_social", "Commentaire": "Coût complet RH"},
+    {"Rubrique": "Redevances crédit-bail", "Formule / logique": "Somme des mensualités TTC des contrats actifs sur chaque année", "Variables utilisées": "leasing_df", "Commentaire": "Automatiquement injecté dans les charges fixes"},
+    {"Rubrique": "Amortissements", "Formule / logique": "Montant / durée d'amortissement", "Variables utilisées": "linear_amortization(amount, duration)", "Commentaire": "Répartition linéaire des investissements"},
+    {"Rubrique": "BFR exploitation", "Formule / logique": "Stock + créances clients + autres créances - dettes fournisseurs - autres dettes", "Variables utilisées": "stock_component + amo_component + priv_component + uncov_component + other_recv_component - supplier_component - other_pay_component", "Commentaire": "Besoin structurel lié à l'exploitation"},
+    {"Rubrique": "Variation BFR", "Formule / logique": "BFR année N - BFR année N-1", "Variables utilisées": "delta_bfr", "Commentaire": "Impact sur la trésorerie"},
+    {"Rubrique": "BFR de démarrage", "Formule / logique": "Achats 3 mois + loyers 3 mois + salaires & charges 3 mois + crédit-bail 1 mois", "Variables utilisées": "startup_purchases + startup_rent + startup_payroll + startup_leasing", "Commentaire": "Besoin initial avant démarrage"},
+    {"Rubrique": "EBITDA", "Formule / logique": "Marge brute - charges fixes hors amortissements", "Variables utilisées": "gross_margin - (fixed_total_years + salary_year_totals_total + taxes + charges non courantes)", "Commentaire": "Rentabilité opérationnelle avant amortissements"},
+    {"Rubrique": "Marge EBITDA", "Formule / logique": "EBITDA / CA total", "Variables utilisées": "ebitda / ca_total_years", "Commentaire": "Taux de rentabilité opérationnelle"},
+    {"Rubrique": "EBIT", "Formule / logique": "EBITDA - amortissements", "Variables utilisées": "ebitda - amort_totals", "Commentaire": "Résultat d'exploitation"},
+    {"Rubrique": "Résultat avant impôt", "Formule / logique": "EBIT - charges financières", "Variables utilisées": "ebit - financial_interest", "Commentaire": "Résultat avant fiscalité"},
+    {"Rubrique": "IS", "Formule / logique": "max(Résultat avant impôt, 0) × taux IS", "Variables utilisées": "max(pre_tax, 0) × is_rates", "Commentaire": "Calcul d'impôt société"},
+    {"Rubrique": "Taxe de solidarité", "Formule / logique": "max(Résultat avant impôt, 0) × taux progressif selon palier", "Variables utilisées": "solidarity_rate(pre_tax)", "Commentaire": "Calcul selon le palier du résultat"},
+    {"Rubrique": "Résultat net", "Formule / logique": "Résultat avant impôt - IS - taxe de solidarité", "Variables utilisées": "pre_tax - is_values - solidarity_values", "Commentaire": "Résultat final après impôts"},
+    {"Rubrique": "Marge nette", "Formule / logique": "Résultat net / CA total", "Variables utilisées": "net_income / ca_total_years", "Commentaire": "Rentabilité nette"},
+    {"Rubrique": "CAF", "Formule / logique": "Résultat net + amortissements", "Variables utilisées": "net_income + amort_totals", "Commentaire": "Capacité d'autofinancement"},
+    {"Rubrique": "Flux net de trésorerie", "Formule / logique": "CAF - variation BFR - remboursement capital - investissements - BFR démarrage + ressources initiales - taxe de solidarité", "Variables utilisées": "caf_values - delta_bfr - financial_principal - invest_out - start_bfr_out + financing_in - solidarity_values", "Commentaire": "Flux annuel de cash"},
+    {"Rubrique": "Trésorerie fin d'année", "Formule / logique": "Trésorerie début + flux net de trésorerie", "Variables utilisées": "cash_balance + flow", "Commentaire": "Position de trésorerie annuelle"},
+    {"Rubrique": "TMCV", "Formule / logique": "1 - (Charges variables / CA total)", "Variables utilisées": "1 - variable_total / ca_total_years", "Commentaire": "Taux de marge sur coûts variables"},
+    {"Rubrique": "Seuil de rentabilité", "Formule / logique": "Charges fixes pour SR / TMCV", "Variables utilisées": "fixed_for_break_even / tmcv", "Commentaire": "Niveau de CA minimum pour couvrir les charges"},
+    {"Rubrique": "Marge de sécurité", "Formule / logique": "CA total - seuil de rentabilité", "Variables utilisées": "ca_total_years - break_even_values", "Commentaire": "Distance par rapport au point mort"},
+    {"Rubrique": "Marge de sécurité %", "Formule / logique": "Marge de sécurité / CA total", "Variables utilisées": "safety_margin_values / ca_total_years", "Commentaire": "Sécurité économique du projet"},
+])
+
+# =========================================================
+# PRINT TAB
+# =========================================================
+with tab_print:
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Besoins démarrage", fmt_mad(total_startup_needs))
+    m2.metric("BFR démarrage", fmt_mad(bfr_startup_total))
+    m3.metric("CA année 1", fmt_mad(ca_total_years[0]))
+    m4.metric("Résultat net année 1", fmt_mad(net_income[0]))
+    m5.metric("Trésorerie fin année 5", fmt_mad(ending_cash[4]))
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Investissements et financements</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_invest_summary, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.dataframe(money_style(df_financing_sources, non_money_cols=["Source", "Type"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col2:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Structure de financement du projet</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_funding_structure, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Plan de financement sur 5 ans</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_funding_plan, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col4:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Seuil de rentabilité économique</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_break_even, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown("<p class='sub-note'>Les lignes TMCV et Marge de sécurité % sont à interpréter comme des pourcentages.</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    col5, col6 = st.columns(2)
+    with col5:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Salaires et charges sociales</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_salary_summary, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown("<p class='sub-note'>Détail par postes</p>", unsafe_allow_html=True)
+        st.dataframe(money_style(df_salary_detail, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col6:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Détail des amortissements</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_amort, non_money_cols=["Rubrique", "Durée amort. (ans)"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    col7, col8 = st.columns(2)
+    with col7:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Synthèse des charges</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_charge_summary, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col8:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Synthèse du chiffre d’affaires</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_ca_summary, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown("<p class='sub-note'>Les croissances sont calculées automatiquement à partir des hypothèses de la zone Données à saisir.</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    col9, col10 = st.columns(2)
+    with col9:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Compte de résultat prévisionnel sur 5 ans</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_pnl, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col10:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Soldes intermédiaires de gestion</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_sig, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    col11, col12 = st.columns(2)
+    with col11:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">BFR de démarrage</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_bfr_startup, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col12:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">BFR d’exploitation</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_bfr, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    col13, col14 = st.columns(2)
+    with col13:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Budget prévisionnel de trésorerie - année 1</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_monthly_treasury, non_money_cols=["Mois"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col14:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Cash-flow du projet</div>', unsafe_allow_html=True)
+        st.dataframe(money_style(df_cashflow, non_money_cols=["Rubrique"]), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Tableau des emprunts</div>', unsafe_allow_html=True)
+    if not df_loans.empty:
+        st.dataframe(money_style(df_loans, non_money_cols=["Année"]), use_container_width=True)
+    else:
+        st.info("Aucun emprunt renseigné.")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# =========================================================
+# REPORT TAB
+# =========================================================
+with tab_report:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Résumé exécutif</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+**Projet analysé :** {project_name}  
+**Porteur :** {project_holder}  
+**Ville :** {city}  
+**Statut juridique :** {legal_status}  
+**Horizon étudié :** 5 ans  
+
+- Total besoins de démarrage : **{fmt_mad(total_startup_needs)}**
+- BFR de démarrage : **{fmt_mad(bfr_startup_total)}**
+- Ressources initiales : **{fmt_mad(total_resources)}**
+- CA année 1 : **{fmt_mad(ca_total_years[0])}**
+- CA année 5 : **{fmt_mad(ca_total_years[4])}**
+- Résultat net année 1 : **{fmt_mad(net_income[0])}**
+- Résultat net année 5 : **{fmt_mad(net_income[4])}**
+- Trésorerie fin année 5 : **{fmt_mad(ending_cash[4])}**
+        """
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Contrôle global automatique</div>', unsafe_allow_html=True)
+    for level, msg in diagnostic:
+        css = "good-box" if level == "good" else "warn-box" if level == "warn" else "risk-box"
+        st.markdown(f"<div class='{css}'>{msg}</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    recommendations = []
+    if excess_or_gap < 0:
+        recommendations.append(f"Compléter les ressources initiales d’environ {fmt_mad(abs(excess_or_gap))}.")
+    if df_monthly_treasury["Trésorerie fin de mois"].min() < 0:
+        recommendations.append("Prévoir plus de trésorerie de départ ou négocier un différé d’emprunt.")
+    if safety_margin_pct[0] < 0.10:
+        recommendations.append("Sécuriser un volume minimal d’activité pour éloigner le seuil de rentabilité.")
+    if safe_div(annual_debt_service[0], max(ca_total_years[0], 1.0)) > 0.15:
+        recommendations.append("Réduire le poids de la dette ou allonger la durée de remboursement.")
+    if not recommendations:
+        recommendations = [
+            "Le montage financier paraît cohérent au regard des hypothèses saisies.",
+            "Mettre à jour le prévisionnel chaque trimestre avec les réalisations effectives.",
+            "Suivre mensuellement les encaissements, le BFR et la masse salariale."
+        ]
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Recommandations</div>', unsafe_allow_html=True)
+    for idx, reco in enumerate(recommendations, start=1):
+        st.markdown(f"**{idx}.** {reco}")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    g1, g2 = st.columns(2)
+    with g1:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        chart_df = pd.DataFrame({"Année": YEAR_LABELS, "CA": ca_total_years, "Résultat net": net_income})
+        fig1 = go.Figure()
+        fig1.add_trace(go.Bar(x=chart_df["Année"], y=chart_df["CA"], name="CA"))
+        fig1.add_trace(go.Scatter(x=chart_df["Année"], y=chart_df["Résultat net"], mode="lines+markers", name="Résultat net"))
+        fig1.update_layout(title="Évolution du CA et du résultat net", height=420)
+        st.plotly_chart(fig1, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with g2:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        fig2 = px.line(pd.DataFrame({"Année": YEAR_LABELS, "Trésorerie": ending_cash}), x="Année", y="Trésorerie", markers=True, title="Évolution de la trésorerie")
+        fig2.update_layout(height=420)
+        st.plotly_chart(fig2, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    g3, g4 = st.columns(2)
+    with g3:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        fig3 = px.bar(
+            pd.DataFrame({
+                "Année": YEAR_LABELS,
+                "BFR exploitation": bfr_values,
+                "Variation BFR": delta_bfr
+            }),
+            x="Année",
+            y=["BFR exploitation", "Variation BFR"],
+            barmode="group",
+            title="BFR et variation du BFR"
+        )
+        fig3.update_layout(height=420)
+        st.plotly_chart(fig3, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with g4:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        fig4 = px.bar(
+            pd.DataFrame({
+                "Année": YEAR_LABELS,
+                "Salaires + charges": salary_year_totals_total,
+                "Charges fixes hors salaires": fixed_total_years,
+                "Charges variables": variable_total
+            }),
+            x="Année",
+            y=["Salaires + charges", "Charges fixes hors salaires", "Charges variables"],
+            barmode="stack",
+            title="Structure des charges"
+        )
+        fig4.update_layout(height=420)
+        st.plotly_chart(fig4, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# =========================================================
+# EXCEL EXPORT
+# =========================================================
+def write_block_to_sheet(
+    worksheet,
+    workbook,
+    start_row,
+    title,
+    df,
+    percent_rows=None,
+    money_default=True,
+):
+    percent_rows = percent_rows or []
+
+    fmt_title = workbook.add_format({
+        "bold": True,
+        "font_color": "white",
+        "bg_color": "#0F4C81",
+        "align": "center",
+        "valign": "vcenter",
+        "border": 1,
+        "font_size": 12,
+    })
+    fmt_header = workbook.add_format({
+        "bold": True,
+        "font_color": "#0F2B57",
+        "bg_color": "#D9EEF9",
+        "align": "center",
+        "valign": "vcenter",
+        "border": 1,
+    })
+    fmt_text = workbook.add_format({
+        "border": 1,
+        "align": "left",
+        "valign": "vcenter",
+    })
+    fmt_money = workbook.add_format({
+        "border": 1,
+        "align": "right",
+        "valign": "vcenter",
+        "num_format": "#,##0;[Red]-#,##0",
+    })
+    fmt_pct = workbook.add_format({
+        "border": 1,
+        "align": "right",
+        "valign": "vcenter",
+        "num_format": "0.0%",
+    })
+
+    ncols = len(df.columns)
+    worksheet.merge_range(start_row, 0, start_row, ncols - 1, title, fmt_title)
+    start_row += 1
+
+    for c_idx, col in enumerate(df.columns):
+        worksheet.write(start_row, c_idx, col, fmt_header)
+    start_row += 1
+
+    for r_idx in range(len(df)):
+        for c_idx, col in enumerate(df.columns):
+            val = df.iloc[r_idx, c_idx]
+            row_label = str(df.iloc[r_idx, 0]) if len(df.columns) > 0 else ""
+
+            if c_idx == 0:
+                worksheet.write(start_row + r_idx, c_idx, val, fmt_text)
+            else:
+                if row_label in percent_rows:
+                    worksheet.write_number(start_row + r_idx, c_idx, n(val), fmt_pct)
+                elif money_default and isinstance(val, (int, float, np.integer, np.floating)):
+                    worksheet.write_number(start_row + r_idx, c_idx, n(val), fmt_money)
+                else:
+                    worksheet.write(start_row + r_idx, c_idx, val, fmt_text)
+
+    # widths
+    worksheet.set_column(0, 0, 38)
+    for c_idx in range(1, ncols):
+        worksheet.set_column(c_idx, c_idx, 16)
+
+    return start_row + len(df) + 2
+
+
+def make_excel_file():
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        workbook = writer.book
+
+        # formats
+        cover_fmt = workbook.add_format({
+            "bold": True,
+            "font_color": "white",
+            "bg_color": "#0F4C81",
+            "font_size": 16,
+            "align": "center",
+            "valign": "vcenter",
+            "border": 1,
+        })
+        sub_fmt = workbook.add_format({
+            "bold": True,
+            "font_color": "#0F2B57",
+            "bg_color": "#D9EEF9",
+            "align": "left",
+            "border": 1,
+        })
+        text_fmt = workbook.add_format({"border": 1})
+        money_fmt = workbook.add_format({"border": 1, "num_format": "#,##0;[Red]-#,##0"})
+
+        # Sheet 1 - Données à saisir
+        ws_input = workbook.add_worksheet("Données à saisir")
+        writer.sheets["Données à saisir"] = ws_input
+        ws_input.merge_range("A1:F1", "DONNÉES À SAISIR", cover_fmt)
+        ws_input.write("A3", "Projet", sub_fmt)
+        ws_input.write("B3", project_name, text_fmt)
+        ws_input.write("A4", "Porteur", sub_fmt)
+        ws_input.write("B4", project_holder, text_fmt)
+        ws_input.write("A5", "Ville", sub_fmt)
+        ws_input.write("B5", city, text_fmt)
+        ws_input.write("A6", "Statut juridique", sub_fmt)
+        ws_input.write("B6", legal_status, text_fmt)
+        ws_input.write("A7", "Nature activité", sub_fmt)
+        ws_input.write("B7", activity_nature, text_fmt)
+
+        row = 9
+        for title, df in [
+            ("Besoins de démarrage", investments_df),
+            ("Financement", financing_df),
+            ("Crédit-bail / Leasing", leasing_df),
+            ("Salaires", salary_df),
+            ("Charges fixes", fixed_df),
+            ("Chiffre d'affaires", ca_df),
+            ("Répartition mensuelle", dist_df),
+            ("BFR (jours)", bfr_days_df),
+            ("Taxes et paramètres", taxes_df),
+        ]:
+            ws_input.write(row, 0, title, sub_fmt)
+            row += 1
+            df.to_excel(writer, sheet_name="Données à saisir", startrow=row, startcol=0, index=False)
+            row += len(df) + 3
+
+        ws_input.set_column("A:A", 32)
+        ws_input.set_column("B:Z", 16)
+
+        # Sheet 2 - Plan financier à imprimer
+        ws_plan = workbook.add_worksheet("Plan financier à imprimer")
+        writer.sheets["Plan financier à imprimer"] = ws_plan
+        ws_plan.merge_range("A1:F1", "ÉTUDE FINANCIÈRE PRÉVISIONNELLE SUR 5 ANS", cover_fmt)
+        ws_plan.merge_range("A2:F2", project_name, cover_fmt)
+
+        r = 4
+        r = write_block_to_sheet(ws_plan, workbook, r, "Investissements et financements", df_invest_summary)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Structure de financement", df_funding_structure)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Plan de financement sur 5 ans", df_funding_plan)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Seuil de rentabilité", df_break_even, percent_rows=["TMCV", "Marge de sécurité %"])
+        r = write_block_to_sheet(ws_plan, workbook, r, "Salaires et charges sociales", df_salary_summary)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Détail des amortissements", df_amort)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Synthèse des charges", df_charge_summary)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Synthèse du chiffre d'affaires", df_ca_summary)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Compte de résultat prévisionnel", df_pnl, percent_rows=["Taux marge brute", "Marge EBITDA", "Marge nette"])
+        r = write_block_to_sheet(ws_plan, workbook, r, "Soldes intermédiaires de gestion", df_sig)
+        r = write_block_to_sheet(ws_plan, workbook, r, "BFR de démarrage", df_bfr_startup)
+        r = write_block_to_sheet(ws_plan, workbook, r, "BFR d'exploitation", df_bfr)
+        r = write_block_to_sheet(ws_plan, workbook, r, "Cash-flow du projet", df_cashflow)
+        if not df_loans.empty:
+            loans_export = df_loans.copy()
+            loans_export["Année"] = loans_export["Année"].astype(str)
+            r = write_block_to_sheet(ws_plan, workbook, r, "Tableau des emprunts", loans_export, money_default=True)
+        
+        # Sheet 3 - Base de calculs
+        ws_calc = workbook.add_worksheet("Base de calculs")
+        writer.sheets["Base de calculs"] = ws_calc
+        ws_calc.merge_range("A1:D1", "DICTIONNAIRE DES FORMULES", cover_fmt)
+
+        df_formula_reference.to_excel(
+            writer,
+            sheet_name="Base de calculs",
+            startrow=2,
+            startcol=0,
+            index=False
+        )
+
+        ws_calc.set_column("A:A", 32)
+        ws_calc.set_column("B:B", 42)
+        ws_calc.set_column("C:C", 42)
+        ws_calc.set_column("D:D", 40)
+        # Sheet 4 - Trésorerie mensuelle
+        ws_treso = workbook.add_worksheet("Trésorerie mensuelle")
+        writer.sheets["Trésorerie mensuelle"] = ws_treso
+        ws_treso.merge_range("A1:I1", "BUDGET PRÉVISIONNEL DE TRÉSORERIE - ANNÉE 1", cover_fmt)
+        df_monthly_treasury.to_excel(writer, sheet_name="Trésorerie mensuelle", startrow=2, startcol=0, index=False)
+        ws_treso.set_column("A:A", 16)
+        ws_treso.set_column("B:I", 18, money_fmt)
+
+    output.seek(0)
+    return output
+
+# =========================================================
+# PDF EXPORT
+# =========================================================
+def add_pdf_table(elements, title, df, percent_rows=None):
+    percent_rows = percent_rows or []
     styles = getSampleStyleSheet()
+
     title_style = ParagraphStyle(
-        "pdf_table_title",
+        "tbl_title",
         parent=styles["Heading3"],
         fontName="Helvetica-Bold",
         fontSize=11,
         textColor=colors.HexColor("#0F4C81"),
-        spaceAfter=8,
+        spaceAfter=6,
         spaceBefore=6,
     )
     elements.append(Paragraph(title, title_style))
@@ -230,11 +1687,15 @@ def add_pdf_table(elements, title, df, pct_cols=None):
     data = [list(df.columns)]
     for _, row in df.iterrows():
         vals = []
-        for col, item in row.items():
-            if isinstance(item, (int, float, np.integer, np.floating)):
-                vals.append(f"{item:.1%}" if col in pct_cols else f"{item:,.0f}".replace(",", " "))
+        row_label = str(row.iloc[0]) if len(row) > 0 else ""
+        for col, val in row.items():
+            if isinstance(val, (int, float, np.integer, np.floating)):
+                if row_label in percent_rows:
+                    vals.append(f"{val:.1%}")
+                else:
+                    vals.append(f"{val:,.0f}".replace(",", " "))
             else:
-                vals.append(str(item))
+                vals.append(str(val))
         data.append(vals)
 
     table = Table(data, repeatRows=1)
@@ -244,1163 +1705,166 @@ def add_pdf_table(elements, title, df, pct_cols=None):
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
-        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D1D5DB")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#F8FAFC")]),
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D0DCEB")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#EEF6FC")]),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
     ]))
     elements.append(table)
-    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Spacer(1, 0.25 * cm))
 
 
-def make_excel_export(frames: dict) -> BytesIO:
+def make_pdf_file():
     output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        workbook = writer.book
 
-        fmt_header = workbook.add_format({
-            "bold": True, "font_color": "white", "bg_color": "#0F4C81",
-            "align": "center", "valign": "vcenter", "border": 0
-        })
-        fmt_title = workbook.add_format({
-            "bold": True, "font_size": 14, "font_color": "white", "bg_color": "#111827"
-        })
-        fmt_money = workbook.add_format({"num_format": "#,##0;[Red](#,##0)", "align": "right"})
-        fmt_pct = workbook.add_format({"num_format": "0.0%", "align": "right"})
-        fmt_text = workbook.add_format({"align": "left"})
-
-        for sheet_name, payload in frames.items():
-            df = payload["df"].copy()
-            pct_cols = payload.get("pct_cols", [])
-            safe_name = sheet_name[:31]
-            df.to_excel(writer, sheet_name=safe_name, startrow=2, index=False)
-            ws = writer.sheets[safe_name]
-            ws.write(0, 0, sheet_name, fmt_title)
-            ws.set_row(2, 24)
-
-            for idx, col in enumerate(df.columns):
-                ws.write(2, idx, col, fmt_header)
-                width = max(13, min(28, len(str(col)) + 4))
-                series = df[col]
-
-                if col in pct_cols:
-                    ws.set_column(idx, idx, width, fmt_pct)
-                elif pd.api.types.is_numeric_dtype(series):
-                    ws.set_column(idx, idx, width, fmt_money)
-                else:
-                    max_len = max([len(str(col))] + [len(str(v)) for v in series.head(100).fillna("")])
-                    ws.set_column(idx, idx, min(max(max_len + 3, width), 40), fmt_text)
-
-            ws.freeze_panes(3, 1)
-
-    output.seek(0)
-    return output
-
-
-def make_pdf_report(project_name: str, sector: str, summary_text: str, diagnostics: list, tables: dict) -> BytesIO:
-    output = BytesIO()
     doc = SimpleDocTemplate(
         output,
         pagesize=landscape(A4),
-        rightMargin=1.0 * cm,
-        leftMargin=1.0 * cm,
-        topMargin=1.0 * cm,
-        bottomMargin=1.0 * cm,
+        rightMargin=0.8 * cm,
+        leftMargin=0.8 * cm,
+        topMargin=0.8 * cm,
+        bottomMargin=0.8 * cm,
     )
 
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
-        "title_style",
+        "pdf_title",
         parent=styles["Title"],
         fontName="Helvetica-Bold",
         fontSize=18,
+        textColor=colors.HexColor("#0F2B57"),
         alignment=TA_CENTER,
-        textColor=colors.HexColor("#0F172A"),
         spaceAfter=8,
     )
     sub_style = ParagraphStyle(
-        "sub_style",
+        "pdf_sub",
         parent=styles["Normal"],
         fontName="Helvetica",
         fontSize=9,
+        textColor=colors.HexColor("#415A77"),
         alignment=TA_CENTER,
-        textColor=colors.HexColor("#334155"),
-        spaceAfter=10,
+        spaceAfter=8,
     )
-    body_style = ParagraphStyle(
-        "body_style",
-        parent=styles["Normal"],
-        fontName="Helvetica",
-        fontSize=9,
-        alignment=TA_LEFT,
-        leading=13,
-        textColor=colors.HexColor("#111827"),
-    )
-    section_style = ParagraphStyle(
-        "section_style",
+    sec_style = ParagraphStyle(
+        "pdf_sec",
         parent=styles["Heading2"],
         fontName="Helvetica-Bold",
         fontSize=12,
         textColor=colors.HexColor("#0F4C81"),
-        spaceBefore=10,
-        spaceAfter=8,
+        spaceBefore=8,
+        spaceAfter=6,
+    )
+    body_style = ParagraphStyle(
+        "pdf_body",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=9,
+        textColor=colors.HexColor("#16263D"),
+        alignment=TA_LEFT,
+        leading=13,
     )
 
     elems = []
-    elems.append(Paragraph(f"Rapport d'étude financière - {project_name}", title_style))
-    elems.append(Paragraph(f"Secteur : {sector} | Généré le {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
-    elems.append(Paragraph("Résumé exécutif", section_style))
-    elems.append(Paragraph(summary_text, body_style))
-    elems.append(Spacer(1, 0.15 * cm))
+    elems.append(Paragraph("ÉTUDE FINANCIÈRE PRÉVISIONNELLE SUR 5 ANS", title_style))
+    elems.append(Paragraph(project_name, sub_style))
+    elems.append(Paragraph(f"{project_holder} — {city} — Généré le {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
 
-    elems.append(Paragraph("Diagnostic expert", section_style))
-    for level, text in diagnostics:
+    elems.append(Paragraph("Résumé exécutif", sec_style))
+    elems.append(Paragraph(
+        f"""
+        Le projet mobilise {fmt_mad(total_startup_needs)} de besoins de démarrage et {fmt_mad(bfr_startup_total)} de BFR de démarrage.
+        Les ressources initiales s’élèvent à {fmt_mad(total_resources)}.
+        Le chiffre d’affaires passe de {fmt_mad(ca_total_years[0])} en année 1 à {fmt_mad(ca_total_years[4])} en année 5.
+        Le résultat net évolue de {fmt_mad(net_income[0])} à {fmt_mad(net_income[4])}.
+        La trésorerie de fin de période atteint {fmt_mad(ending_cash[4])}.
+        """,
+        body_style
+    ))
+
+    elems.append(Paragraph("Diagnostic", sec_style))
+    for level, txt in diagnostic:
         prefix = "OK" if level == "good" else "Alerte" if level == "warn" else "Risque"
-        elems.append(Paragraph(f"• <b>{prefix}</b> - {text}", body_style))
-    elems.append(Spacer(1, 0.2 * cm))
+        elems.append(Paragraph(f"• <b>{prefix}</b> — {txt}", body_style))
 
-    for title, payload in tables.items():
-        add_pdf_table(elems, title, payload["df"], pct_cols=payload.get("pct_cols", []))
+    add_pdf_table(elems, "Investissements et financements", df_invest_summary)
+    add_pdf_table(elems, "Structure de financement", df_funding_structure)
+
+    elems.append(PageBreak())
+    add_pdf_table(elems, "Compte de résultat prévisionnel", df_pnl, percent_rows=["Taux marge brute", "Marge EBITDA", "Marge nette"])
+    add_pdf_table(elems, "Plan de financement sur 5 ans", df_funding_plan)
+    add_pdf_table(elems, "Seuil de rentabilité", df_break_even, percent_rows=["TMCV", "Marge de sécurité %"])
+
+    elems.append(PageBreak())
+    add_pdf_table(elems, "Salaires et charges sociales", df_salary_summary)
+    add_pdf_table(elems, "Détail des amortissements", df_amort)
+    add_pdf_table(elems, "BFR de démarrage", df_bfr_startup)
+    add_pdf_table(elems, "BFR d'exploitation", df_bfr)
+
+    elems.append(PageBreak())
+    add_pdf_table(elems, "Dictionnaire des formules", df_formula_reference)
+    
+    elems.append(PageBreak())
+    add_pdf_table(elems, "Cash-flow du projet", df_cashflow)
+    add_pdf_table(elems, "Budget prévisionnel de trésorerie - année 1", df_monthly_treasury)
+    if not df_loans.empty:
+        add_pdf_table(elems, "Tableau des emprunts", df_loans)
 
     doc.build(elems)
     output.seek(0)
     return output
-
-
-def generate_diagnostics(df_global, df_monthly_cash, funding_gap, break_even_df):
-    comments = []
-    y1 = df_global.iloc[0]
-    y2 = df_global.iloc[1]
-    y5 = df_global.iloc[-1]
-
-    treso1 = fmt_mad(y1["Trésorerie fin d'année"])
-    treso5 = fmt_mad(y5["Trésorerie fin d'année"])
-
-    if y1["Résultat net"] > 0:
-        comments.append(("good", f"Le projet est rentable dès l'année 1 avec un résultat net de {fmt_mad(y1['Résultat net'])}."))
-    elif y2["Résultat net"] > 0:
-        comments.append(("warn", f"Le projet devient bénéficiaire en année 2 avec un résultat net de {fmt_mad(y2['Résultat net'])}."))
-    else:
-        comments.append(("risk", "Le projet reste déficitaire sur les premières années. Il faut revoir le chiffre d'affaires, les charges ou la structure de financement."))
-
-    if y1["Marge EBITDA %"] >= 0.15:
-        comments.append(("good", f"La marge EBITDA de départ ressort à {fmt_pct(y1['Marge EBITDA %'])}, ce qui est solide."))
-    elif y1["Marge EBITDA %"] >= 0.05:
-        comments.append(("warn", f"La marge EBITDA de départ est positive mais encore modérée à {fmt_pct(y1['Marge EBITDA %'])}."))
-    else:
-        comments.append(("risk", f"La marge EBITDA de départ est faible à {fmt_pct(y1['Marge EBITDA %'])}."))
-
-    if funding_gap >= 0:
-        comments.append(("good", f"Le plan de financement couvre les besoins de démarrage avec un excédent de {fmt_mad(funding_gap)}."))
-    else:
-        comments.append(("risk", f"Le plan de financement présente un déficit initial de {fmt_mad(abs(funding_gap))}."))
-
-    if df_monthly_cash["Trésorerie fin de mois"].min() < 0:
-        comments.append(("risk", f"La trésorerie mensuelle devient négative sur l'année 1 avec un point bas de {fmt_mad(df_monthly_cash['Trésorerie fin de mois'].min())}."))
-    else:
-        comments.append(("good", "La trésorerie mensuelle reste positive sur l'ensemble de la première année."))
-
-    if y1["Poids annuité / CA %"] > 0.20:
-        comments.append(("risk", f"Le poids de l'annuité de dette représente {fmt_pct(y1['Poids annuité / CA %'])} du CA année 1, ce qui est élevé."))
-    elif y1["Poids annuité / CA %"] > 0.10:
-        comments.append(("warn", f"Le poids de l'annuité de dette représente {fmt_pct(y1['Poids annuité / CA %'])} du CA année 1, à surveiller."))
-    else:
-        comments.append(("good", "Le service de la dette reste maîtrisable au regard du chiffre d'affaires."))
-
-    if break_even_df.loc[0, "Marge de sécurité %"] < 0.10:
-        comments.append(("warn", "La marge de sécurité de l'année 1 est faible. Le niveau d'activité devra être sécurisé."))
-    else:
-        comments.append(("good", "La marge de sécurité du seuil de rentabilité est convenable."))
-
-    if y5["Trésorerie fin d'année"] > y1["Trésorerie fin d'année"]:
-        comments.append(("good", f"La trésorerie progresse entre l'année 1 ({treso1}) et l'année 5 ({treso5})."))
-    else:
-        comments.append(("warn", "La trésorerie reste tendue à moyen terme. Une réserve complémentaire serait prudente."))
-
-    return comments
-
 # =========================================================
-# SIDEBAR
+# CALC BASE TAB
 # =========================================================
-with st.sidebar:
-    st.markdown("## Paramètres généraux")
-    project_name = st.text_input("Nom du projet", value="Clinique Multidisciplinaire")
-    project_holder = st.text_input("Porteur du projet", value="Société CLINIQUE CAMILIA")
-    legal_status = st.selectbox(
-        "Statut juridique",
-        ["SARL (IS)", "SAS (IS)", "SASU (IS)", "EURL (IS)", "Entreprise individuelle (IR)", "Autre"]
-    )
-    sector = st.selectbox(
-        "Secteur",
-        ["Clinique / Santé", "Cabinet médical", "Pharmacie", "Commerce", "Services", "Industrie légère", "Autre"]
-    )
-    city = st.text_input("Ville / commune", value="ERRAHMA")
-    phone = st.text_input("Téléphone", value="")
-    email = st.text_input("E-mail", value="")
-    start_cash = st.number_input("Trésorerie de départ", min_value=0.0, value=500000.0, step=10000.0)
-    income_tax_rate = st.number_input("Taux d'IS / impôt (%)", min_value=0.0, value=20.0, step=1.0) / 100
-    inflation_rate = st.number_input("Inflation annuelle charges fixes (%)", min_value=0.0, value=3.0, step=0.5) / 100
-    st.caption("Les sections de saisie alimentent automatiquement tous les tableaux financiers et le rapport expert.")
-
-# =========================================================
-# HERO
-# =========================================================
-st.markdown(
-    f"""
-    <div class="hero-card">
-        <h1 style="margin-bottom:0.2rem;">{project_name}</h1>
-        <p style="margin-top:0.2rem;">
-        Outil professionnel d'étude financière et de business plan sur 5 ans :
-        données à saisir, plan financier à imprimer, analyse de rentabilité,
-        trésorerie mensuelle, structure de financement, rapport synthétique,
-        export Excel multi-onglets et export PDF.
-        </p>
-        <div>
-            <span class="legend-chip">Investissements & financements</span>
-            <span class="legend-chip">Compte de résultat prévisionnel</span>
-            <span class="legend-chip">SIG</span>
-            <span class="legend-chip">BFR</span>
-            <span class="legend-chip">Cash-flow</span>
-            <span class="legend-chip">Rapport expert</span>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# =========================================================
-# TABS
-# =========================================================
-input_tab, print_tab, report_tab, export_tab = st.tabs([
-    "1. Données à saisir",
-    "2. Plan financier à imprimer",
-    "3. Rapport synthétique",
-    "4. Exports",
-])
-
-# =========================================================
-# INPUT TAB
-# =========================================================
-with input_tab:
+with tab_calc:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">A. Identité du projet</div>', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.text_input("Nom / raison sociale", value=project_holder, disabled=True)
-    with c2:
-        st.text_input("Projet / activité", value=project_name, disabled=True)
-    with c3:
-        st.text_input("Ville / commune", value=city, disabled=True)
-    st.markdown("<p class='small-note'>Ces informations sont reprises dans le rapport et dans les exports.</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">B. Besoins de démarrage - montants TTC</div>', unsafe_allow_html=True)
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        establishment_cost = st.number_input("Frais d'établissement (TTC)", min_value=0.0, value=70000.0, step=5000.0)
-        study_cost = st.number_input("Frais d'étude / ingénierie (TTC)", min_value=0.0, value=90000.0, step=5000.0)
-        software_cost = st.number_input("Logiciels / formations (TTC)", min_value=0.0, value=180000.0, step=5000.0)
-        brand_cost = st.number_input("Dépôt marque / brevet / modèle (TTC)", min_value=0.0, value=0.0, step=5000.0)
-        entry_rights = st.number_input("Droits d'entrée (TTC)", min_value=0.0, value=0.0, step=5000.0)
-
-    with c2:
-        goodwill_cost = st.number_input("Achat fonds de commerce / parts (TTC)", min_value=0.0, value=0.0, step=10000.0)
-        lease_right = st.number_input("Droit au bail (TTC)", min_value=0.0, value=0.0, step=10000.0)
-        deposit_guarantee = st.number_input("Caution / dépôt de garantie", min_value=0.0, value=150000.0, step=10000.0)
-        loan_fees = st.number_input("Frais de dossier", min_value=0.0, value=25000.0, step=5000.0)
-        legal_fees = st.number_input("Frais de notaire / avocat", min_value=0.0, value=20000.0, step=5000.0)
-
-    with c3:
-        signage_cost = st.number_input("Enseigne / communication de lancement", min_value=0.0, value=40000.0, step=5000.0)
-        real_estate_cost = st.number_input("Achat immobilier", min_value=0.0, value=0.0, step=10000.0)
-        construction_cost = st.number_input("Construction / aménagement", min_value=0.0, value=1500000.0, step=10000.0)
-        earthworks_cost = st.number_input("Terrassement", min_value=0.0, value=0.0, step=10000.0)
-        equipment_cost = st.number_input("Matériel / équipements", min_value=0.0, value=2500000.0, step=10000.0)
-        initial_stock = st.number_input("Stock initial", min_value=0.0, value=0.0, step=10000.0)
-
-    st.markdown("<p class='small-note'>Saisis ici tous les investissements et frais de lancement. Ils alimentent les tableaux Investissements, Structure de financement, Amortissements et Cash-flow.</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">C. Durées d\'amortissement (en années)</div>', unsafe_allow_html=True)
-    a1, a2, a3, a4 = st.columns(4)
-    with a1:
-        dur_establishment = st.number_input("Frais d'établissement", min_value=1, value=5)
-        dur_study = st.number_input("Études", min_value=1, value=5)
-        dur_software = st.number_input("Logiciels / formations", min_value=1, value=3)
-        dur_brand = st.number_input("Marque / brevet", min_value=1, value=5)
-    with a2:
-        dur_entry = st.number_input("Droits d'entrée", min_value=1, value=5)
-        dur_goodwill = st.number_input("Fonds de commerce / parts", min_value=1, value=10)
-        dur_lease = st.number_input("Droit au bail", min_value=1, value=10)
-        dur_loan_fees = st.number_input("Frais de dossier", min_value=1, value=5)
-    with a3:
-        dur_legal = st.number_input("Notaire / avocat", min_value=1, value=5)
-        dur_signage = st.number_input("Communication / enseigne", min_value=1, value=4)
-        dur_real_estate = st.number_input("Immobilier", min_value=1, value=20)
-        dur_construction = st.number_input("Construction / aménagement", min_value=1, value=10)
-    with a4:
-        dur_earthworks = st.number_input("Terrassement", min_value=1, value=10)
-        dur_equipment = st.number_input("Matériel / équipements", min_value=1, value=7)
-        dur_stock = st.number_input("Stock initial", min_value=1, value=1)
-        dur_deposit = st.number_input("Caution / dépôt", min_value=1, value=5)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">D. Financement du projet</div>', unsafe_allow_html=True)
-    f1, f2, f3 = st.columns(3)
-    with f1:
-        equity = st.number_input("Apport personnel / capital social", min_value=0.0, value=1800000.0, step=10000.0)
-        in_kind = st.number_input("Apports en nature", min_value=0.0, value=0.0, step=10000.0)
-        shareholder_loan = st.number_input("Compte courant associé", min_value=0.0, value=0.0, step=10000.0)
-    with f2:
-        bank_loan_1 = st.number_input("Prêt bancaire n°1", min_value=0.0, value=2500000.0, step=10000.0)
-        bank_loan_1_rate = st.number_input("Taux prêt n°1 (%)", min_value=0.0, value=6.0, step=0.25) / 100
-        bank_loan_1_years = st.number_input("Durée prêt n°1 (ans)", min_value=1, value=7)
-        moratorium_1_months = st.number_input("Différé prêt n°1 (mois)", min_value=0, value=0)
-    with f3:
-        bank_loan_2 = st.number_input("Prêt bancaire n°2", min_value=0.0, value=0.0, step=10000.0)
-        bank_loan_2_rate = st.number_input("Taux prêt n°2 (%)", min_value=0.0, value=5.5, step=0.25) / 100
-        bank_loan_2_years = st.number_input("Durée prêt n°2 (ans)", min_value=1, value=5)
-        moratorium_2_months = st.number_input("Différé prêt n°2 (mois)", min_value=0, value=0)
-        subsidy = st.number_input("Subvention", min_value=0.0, value=0.0, step=10000.0)
-        other_financing = st.number_input("Autre financement", min_value=0.0, value=0.0, step=10000.0)
-    st.markdown("<p class='small-note'>Montants annuels ou uniques selon la nature du financement. Les prêts alimentent automatiquement le tableau des emprunts, les charges financières et les cash-flows.</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">E. Salaires et charges sociales</div>', unsafe_allow_html=True)
-    s1, s2, s3 = st.columns(3)
-    with s1:
-        management_headcount = st.number_input("Nombre cadres / direction", min_value=0, value=1)
-        management_monthly_salary = st.number_input("Salaire brut mensuel cadres", min_value=0.0, value=28000.0, step=1000.0)
-        medical_headcount = st.number_input("Nombre personnel médical", min_value=0, value=3)
-        medical_monthly_salary = st.number_input("Salaire brut mensuel personnel médical", min_value=0.0, value=12000.0, step=500.0)
-    with s2:
-        admin_headcount = st.number_input("Nombre personnel administratif", min_value=0, value=4)
-        admin_monthly_salary = st.number_input("Salaire brut mensuel administratif", min_value=0.0, value=4500.0, step=500.0)
-        support_headcount = st.number_input("Nombre personnel support", min_value=0, value=2)
-        support_monthly_salary = st.number_input("Salaire brut mensuel support", min_value=0.0, value=4000.0, step=500.0)
-    with s3:
-        employer_social_rate = st.number_input("Taux charges sociales patronales (%)", min_value=0.0, value=21.09, step=0.1) / 100
-        salary_growth_rate = st.number_input("Augmentation annuelle salaires (%)", min_value=0.0, value=3.0, step=0.5) / 100
-        external_hr_cost = st.number_input("Autres coûts RH annuels", min_value=0.0, value=0.0, step=5000.0)
-
-    st.markdown("<p class='small-note'>Les salaires doivent être saisis en mensuel brut. L'outil calcule automatiquement le brut annuel, les charges patronales et la masse salariale sur 5 ans.</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">F. Charges fixes hors salaires - montants annuels année 1</div>', unsafe_allow_html=True)
-    cfx1, cfx2, cfx3 = st.columns(3)
-    with cfx1:
-        insurance_y1 = st.number_input("Assurances (annuel)", min_value=0.0, value=60000.0, step=5000.0)
-        telecom_y1 = st.number_input("Téléphone / internet (annuel)", min_value=0.0, value=40000.0, step=5000.0)
-        subscriptions_y1 = st.number_input("Autres abonnements (annuel)", min_value=0.0, value=35000.0, step=5000.0)
-        fuel_y1 = st.number_input("Carburant / transports (annuel)", min_value=0.0, value=45000.0, step=5000.0)
-        travel_y1 = st.number_input("Déplacements / hébergement (annuel)", min_value=0.0, value=20000.0, step=5000.0)
-        utilities_y1 = st.number_input("Eau / électricité / gaz (annuel)", min_value=0.0, value=180000.0, step=5000.0)
-    with cfx2:
-        mutual_y1 = st.number_input("Mutuelle (annuel)", min_value=0.0, value=30000.0, step=5000.0)
-        supplies_y1 = st.number_input("Fournitures diverses (annuel)", min_value=0.0, value=45000.0, step=5000.0)
-        maintenance_y1 = st.number_input("Entretien matériel / vêtements (annuel)", min_value=0.0, value=120000.0, step=5000.0)
-        cleaning_y1 = st.number_input("Nettoyage des locaux (annuel)", min_value=0.0, value=50000.0, step=5000.0)
-        marketing_y1 = st.number_input("Publicité / communication (annuel)", min_value=0.0, value=120000.0, step=5000.0)
-        rent_y1 = st.number_input("Loyer et charges locatives (annuel)", min_value=0.0, value=750000.0, step=10000.0)
-    with cfx3:
-        leasing_y1 = st.number_input("Redevances crédit-bail (annuel)", min_value=0.0, value=0.0, step=5000.0)
-        bank_fees_y1 = st.number_input("Frais bancaires (annuel)", min_value=0.0, value=20000.0, step=1000.0)
-        taxes_y1 = st.number_input("Taxes (annuel)", min_value=0.0, value=40000.0, step=5000.0)
-        accountant_y1 = st.number_input("Expert-comptable (annuel)", min_value=0.0, value=72000.0, step=5000.0)
-        other_fixed_y1 = st.number_input("Autres charges fixes (annuel)", min_value=0.0, value=50000.0, step=5000.0)
-    st.markdown("<p class='small-note'>Tous les montants de cette rubrique sont saisis en annuel pour l'année 1, puis revalorisés automatiquement avec l'inflation.</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">G. Chiffre d\'affaires</div>', unsafe_allow_html=True)
-    revenue_mode = st.radio(
-        "Mode de saisie du CA",
-        ["Saisie mensuelle année 1", "CA annuel + répartition mensuelle"],
-        horizontal=True
-    )
-
-    rev1, rev2 = st.columns(2)
-    with rev1:
-        goods_sales_y1 = st.number_input("CA année 1 - vente de marchandises", min_value=0.0, value=0.0, step=10000.0)
-        services_sales_y1 = st.number_input("CA année 1 - services", min_value=0.0, value=7064424.0, step=10000.0)
-    with rev2:
-        goods_growth_2 = st.number_input("Croissance marchandises année 2 (%)", value=0.0, step=1.0) / 100
-        goods_growth_3 = st.number_input("Croissance marchandises année 3 (%)", value=0.0, step=1.0) / 100
-        goods_growth_4 = st.number_input("Croissance marchandises année 4 (%)", value=10.0, step=1.0) / 100
-        goods_growth_5 = st.number_input("Croissance marchandises année 5 (%)", value=0.0, step=1.0) / 100
-        services_growth_2 = st.number_input("Croissance services année 2 (%)", value=70.0, step=1.0) / 100
-        services_growth_3 = st.number_input("Croissance services année 3 (%)", value=50.0, step=1.0) / 100
-        services_growth_4 = st.number_input("Croissance services année 4 (%)", value=30.0, step=1.0) / 100
-        services_growth_5 = st.number_input("Croissance services année 5 (%)", value=20.0, step=1.0) / 100
-
-    monthly_goods_values = []
-    monthly_services_values = []
-
-    st.markdown("<p class='small-note'>Cette répartition sert au budget de trésorerie mensuel de l'année 1.</p>", unsafe_allow_html=True)
-    m1, m2, m3, m4 = st.columns(4)
-    cols = [m1, m2, m3, m4]
-    for i, month in enumerate(MONTHS_SHORT):
-        with cols[i % 4]:
-            if revenue_mode == "Saisie mensuelle année 1":
-                goods_val = st.number_input(f"{month} marchandises", min_value=0.0, value=0.0, step=1000.0, key=f"goods_{i}")
-                services_val = st.number_input(f"{month} services", min_value=0.0, value=float(services_sales_y1 / 12), step=1000.0, key=f"services_{i}")
-            else:
-                goods_val = st.number_input(f"{month} % marchandises", min_value=0.0, value=float(100 / 12), step=0.5, key=f"goods_pct_{i}")
-                services_val = st.number_input(f"{month} % services", min_value=0.0, value=float(100 / 12), step=0.5, key=f"services_pct_{i}")
-            monthly_goods_values.append(goods_val)
-            monthly_services_values.append(services_val)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">H. Charges variables et BFR</div>', unsafe_allow_html=True)
-    v1, v2, v3 = st.columns(3)
-    with v1:
-        goods_purchase_rate = st.number_input("Coût d'achat marchandises / CA marchandises (%)", min_value=0.0, value=85.0, step=1.0) / 100
-        service_variable_rate = st.number_input("Charges variables services / CA services (%)", min_value=0.0, value=20.0, step=1.0) / 100
-        other_variable_rate = st.number_input("Autres variables / CA total (%)", min_value=0.0, value=3.0, step=0.5) / 100
-    with v2:
-        client_days = st.number_input("Crédit clients (jours)", min_value=0.0, value=45.0, step=1.0)
-        supplier_days = st.number_input("Crédit fournisseurs (jours)", min_value=0.0, value=30.0, step=1.0)
-        stock_days = st.number_input("Stock d'exploitation (jours)", min_value=0.0, value=30.0, step=1.0)
-    with v3:
-        safety_bfr_rate = st.number_input("Marge de sécurité BFR (%)", min_value=0.0, value=5.0, step=1.0) / 100
-        vat_rate = st.number_input("TVA indicative (%)", min_value=0.0, value=20.0, step=1.0) / 100
-        include_vat_buffer = st.checkbox("Inclure une réserve TVA dans le BFR", value=False)
-    st.markdown("<p class='small-note'>Les délais clients, fournisseurs et stock servent au calcul du BFR d'exploitation. Le BFR de démarrage est calculé séparément selon une logique 3 mois.</p>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# =========================================================
-# CALCULS
-# =========================================================
-need_items = [
-    ("Frais d'établissement", establishment_cost, dur_establishment),
-    ("Frais d'étude / ingénierie", study_cost, dur_study),
-    ("Logiciels / formations", software_cost, dur_software),
-    ("Dépôt marque / brevet / modèle", brand_cost, dur_brand),
-    ("Droits d'entrée", entry_rights, dur_entry),
-    ("Achat fonds de commerce / parts", goodwill_cost, dur_goodwill),
-    ("Droit au bail", lease_right, dur_lease),
-    ("Caution / dépôt de garantie", deposit_guarantee, dur_deposit),
-    ("Frais de dossier", loan_fees, dur_loan_fees),
-    ("Frais de notaire / avocat", legal_fees, dur_legal),
-    ("Enseigne / communication", signage_cost, dur_signage),
-    ("Achat immobilier", real_estate_cost, dur_real_estate),
-    ("Construction / aménagement", construction_cost, dur_construction),
-    ("Terrassement", earthworks_cost, dur_earthworks),
-    ("Matériel / équipements", equipment_cost, dur_equipment),
-    ("Stock initial", initial_stock, dur_stock),
-]
-
-capex_total = sum(v for _, v, _ in need_items)
-resources_total = equity + in_kind + shareholder_loan + bank_loan_1 + bank_loan_2 + subsidy + other_financing
-
-salary_rows = [
-    ("Cadres / direction", management_headcount, management_monthly_salary),
-    ("Personnel médical", medical_headcount, medical_monthly_salary),
-    ("Personnel administratif", admin_headcount, admin_monthly_salary),
-    ("Personnel support", support_headcount, support_monthly_salary),
-]
-
-salary_detail_rows = []
-base_payroll_y1 = 0.0
-base_gross_y1 = 0.0
-base_social_y1 = 0.0
-
-for label, hc, monthly_salary in salary_rows:
-    annual_gross = hc * monthly_salary * 12
-    annual_social = annual_gross * employer_social_rate
-    annual_total = annual_gross + annual_social
-    salary_detail_rows.append({
-        "Poste": label,
-        "Effectif": hc,
-        "Salaire brut mensuel": monthly_salary,
-        "Brut annuel": annual_gross,
-        "Charges sociales": annual_social,
-        "Coût annuel total": annual_total,
-    })
-    base_payroll_y1 += annual_total
-    base_gross_y1 += annual_gross
-    base_social_y1 += annual_social
-
-base_payroll_y1 += external_hr_cost
-
-salary_table = []
-for year in YEARS:
-    factor = (1 + salary_growth_rate) ** (year - 1)
-    salary_table.append({
-        "Année": year,
-        "Salaires bruts": base_gross_y1 * factor,
-        "Charges sociales": base_social_y1 * factor,
-        "Autres coûts RH": external_hr_cost * factor,
-        "Total salaires + charges": base_payroll_y1 * factor,
-    })
-
-df_salary = pd.DataFrame(salary_table)
-df_salary_detail = pd.DataFrame(salary_detail_rows)
-
-fixed_non_salary_y1 = {
-    "Assurances": insurance_y1,
-    "Téléphone / internet": telecom_y1,
-    "Autres abonnements": subscriptions_y1,
-    "Carburant / transports": fuel_y1,
-    "Déplacements / hébergement": travel_y1,
-    "Eau / électricité / gaz": utilities_y1,
-    "Mutuelle": mutual_y1,
-    "Fournitures diverses": supplies_y1,
-    "Entretien matériel / vêtements": maintenance_y1,
-    "Nettoyage des locaux": cleaning_y1,
-    "Publicité / communication": marketing_y1,
-    "Loyer et charges locatives": rent_y1,
-    "Redevances crédit-bail": leasing_y1,
-    "Frais bancaires": bank_fees_y1,
-    "Taxes": taxes_y1,
-    "Expert-comptable": accountant_y1,
-    "Autres charges fixes": other_fixed_y1,
-}
-
-fixed_detail_years = []
-for label, amount in fixed_non_salary_y1.items():
-    row = {"Poste": label}
-    for y in YEARS:
-        row[f"Année {y}"] = amount * ((1 + inflation_rate) ** (y - 1))
-    fixed_detail_years.append(row)
-df_fixed_detail = pd.DataFrame(fixed_detail_years)
-
-if revenue_mode == "Saisie mensuelle année 1":
-    monthly_goods_y1 = np.array(monthly_goods_values, dtype=float)
-    monthly_services_y1 = np.array(monthly_services_values, dtype=float)
-    goods_sales_y1 = float(monthly_goods_y1.sum())
-    services_sales_y1 = float(monthly_services_y1.sum())
-else:
-    goods_weights = normalize_distribution(monthly_goods_values)
-    services_weights = normalize_distribution(monthly_services_values)
-    monthly_goods_y1 = goods_weights * goods_sales_y1
-    monthly_services_y1 = services_weights * services_sales_y1
-
-revenue_goods = [goods_sales_y1]
-revenue_services = [services_sales_y1]
-
-for g in [goods_growth_2, goods_growth_3, goods_growth_4, goods_growth_5]:
-    revenue_goods.append(revenue_goods[-1] * (1 + g))
-for g in [services_growth_2, services_growth_3, services_growth_4, services_growth_5]:
-    revenue_services.append(revenue_services[-1] * (1 + g))
-
-total_ca = [g + s for g, s in zip(revenue_goods, revenue_services)]
-
-loan_1_df = build_loan_schedule(bank_loan_1, bank_loan_1_rate, int(bank_loan_1_years), 5)
-loan_2_df = build_loan_schedule(bank_loan_2, bank_loan_2_rate, int(bank_loan_2_years), 5)
-
-df_loans = loan_1_df.copy()
-df_loans["Mensualité"] = loan_1_df["Mensualité"] + loan_2_df["Mensualité"]
-df_loans["Annuité"] = loan_1_df["Annuité"] + loan_2_df["Annuité"]
-df_loans["Intérêts"] = loan_1_df["Intérêts"] + loan_2_df["Intérêts"]
-df_loans["Remboursement capital"] = loan_1_df["Remboursement capital"] + loan_2_df["Remboursement capital"]
-df_loans["Capital restant dû"] = loan_1_df["Capital restant dû"] + loan_2_df["Capital restant dû"]
-
-amort_rows = []
-total_amort_by_year = np.zeros(5)
-for label, amount, duration in need_items:
-    values = linear_amortization(amount, int(duration), 5)
-    row = {"Poste": label, "Montant": amount, "Durée": duration}
-    for idx, y in enumerate(YEARS):
-        row[f"Année {y}"] = values[idx]
-        total_amort_by_year[idx] += values[idx]
-    amort_rows.append(row)
-df_amort = pd.DataFrame(amort_rows)
-
-goods_purchases = [g * goods_purchase_rate for g in revenue_goods]
-service_variable = [s * service_variable_rate for s in revenue_services]
-other_variable = [ca * other_variable_rate for ca in total_ca]
-total_variable = [a + b + c for a, b, c in zip(goods_purchases, service_variable, other_variable)]
-
-fixed_totals = []
-for i, _year in enumerate(YEARS):
-    factor = (1 + inflation_rate) ** i
-    fixed_non_salary_total = sum(fixed_non_salary_y1.values()) * factor
-    salary_total = df_salary.loc[i, "Total salaires + charges"]
-    fixed_totals.append(fixed_non_salary_total + salary_total)
-
-startup_purchases = (total_variable[0] / 12) * 3
-startup_rent = (rent_y1 / 12) * 3
-startup_payroll = (df_salary.loc[0, "Total salaires + charges"] / 12) * 3
-startup_leasing = leasing_y1 / 12
-bfr_startup_total = startup_purchases + startup_rent + startup_payroll + startup_leasing
-
-bfr_values = []
-for i in range(5):
-    annual_purchases = total_variable[i]
-    stock_component = annual_purchases * stock_days / 365
-    client_component = total_ca[i] * client_days / 365
-    supplier_component = annual_purchases * supplier_days / 365
-    bfr = stock_component + client_component - supplier_component
-    if include_vat_buffer:
-        bfr += total_ca[i] * vat_rate * 0.15
-    bfr *= (1 + safety_bfr_rate)
-    bfr_values.append(bfr)
-
-delta_bfr = [bfr_values[0]] + [bfr_values[i] - bfr_values[i - 1] for i in range(1, 5)]
-
-global_rows = []
-cash_balance = start_cash
-
-for i, year in enumerate(YEARS):
-    ca_goods = revenue_goods[i]
-    ca_services = revenue_services[i]
-    ca_total = total_ca[i]
-    var_total = total_variable[i]
-    gross_margin = ca_total - var_total
-    fixed_cost = fixed_totals[i]
-    ebitda = gross_margin - fixed_cost
-    amort = total_amort_by_year[i]
-    ebit = ebitda - amort
-    financial = df_loans.loc[i, "Intérêts"]
-    pre_tax = ebit - financial
-    tax = max(pre_tax, 0.0) * income_tax_rate
-    net_income = pre_tax - tax
-    caf = net_income + amort
-    principal = df_loans.loc[i, "Remboursement capital"]
-    annuity = df_loans.loc[i, "Annuité"]
-
-    initial_investment = capex_total if i == 0 else 0.0
-    initial_bfr_startup = bfr_startup_total if i == 0 else 0.0
-    initial_resources = resources_total if i == 0 else 0.0
-
-    net_cash_flow = caf - delta_bfr[i] - principal - initial_investment - initial_bfr_startup + initial_resources
-    cash_balance += net_cash_flow
-
-    global_rows.append({
-        "Année": year,
-        "CA marchandises": ca_goods,
-        "CA services": ca_services,
-        "CA": ca_total,
-        "Charges variables": var_total,
-        "Marge brute": gross_margin,
-        "Taux marge brute %": safe_div(gross_margin, ca_total),
-        "Charges fixes": fixed_cost,
-        "EBITDA": ebitda,
-        "Marge EBITDA %": safe_div(ebitda, ca_total),
-        "Amortissements": amort,
-        "EBIT": ebit,
-        "Charges financières": financial,
-        "Résultat avant impôt": pre_tax,
-        "Impôt": tax,
-        "Résultat net": net_income,
-        "Marge nette %": safe_div(net_income, ca_total),
-        "CAF": caf,
-        "BFR exploitation": bfr_values[i],
-        "Variation BFR": delta_bfr[i],
-        "Remboursement capital": principal,
-        "Annuité dette": annuity,
-        "Poids annuité / CA %": safe_div(annuity, ca_total),
-        "Investissements initiaux": initial_investment,
-        "BFR de démarrage": initial_bfr_startup,
-        "Ressources initiales": initial_resources,
-        "Flux net de trésorerie": net_cash_flow,
-        "Trésorerie fin d'année": cash_balance,
-    })
-
-df_global = pd.DataFrame(global_rows)
-
-tmcv = [max(1 - (total_variable[i] / max(total_ca[i], 1.0)), 0.0001) for i in range(5)]
-seuil_rentabilite = [fixed_totals[i] / tmcv[i] for i in range(5)]
-
-sig_rows = []
-for i in range(5):
-    commercial_margin = revenue_goods[i] - goods_purchases[i]
-    production = revenue_services[i]
-    value_added = df_global.loc[i, "Marge brute"] - (
-        supplies_y1 * ((1 + inflation_rate) ** i)
-        + telecom_y1 * ((1 + inflation_rate) ** i)
-        + subscriptions_y1 * ((1 + inflation_rate) ** i)
-    )
-    ebe = df_global.loc[i, "EBITDA"]
-    operating_result = df_global.loc[i, "EBIT"]
-    current_result = df_global.loc[i, "Résultat avant impôt"]
-    net_result = df_global.loc[i, "Résultat net"]
-
-    sig_rows.append({
-        "Année": YEARS[i],
-        "Marge commerciale": commercial_margin,
-        "Production de l'exercice": production,
-        "Valeur ajoutée": value_added,
-        "EBE": ebe,
-        "Résultat d'exploitation": operating_result,
-        "Résultat courant": current_result,
-        "Résultat net": net_result,
-    })
-df_sig = pd.DataFrame(sig_rows)
-
-df_invest_finance = pd.DataFrame(
-    [{"Rubrique": label, "Montant": value} for label, value, _ in need_items]
-    + [{"Rubrique": "TOTAL INVESTISSEMENTS", "Montant": capex_total}]
-    + [
-        {"Rubrique": "Apport personnel / capital social", "Montant": equity},
-        {"Rubrique": "Apports en nature", "Montant": in_kind},
-        {"Rubrique": "Compte courant associé", "Montant": shareholder_loan},
-        {"Rubrique": "Prêt bancaire n°1", "Montant": bank_loan_1},
-        {"Rubrique": "Prêt bancaire n°2", "Montant": bank_loan_2},
-        {"Rubrique": "Subvention", "Montant": subsidy},
-        {"Rubrique": "Autre financement", "Montant": other_financing},
-        {"Rubrique": "TOTAL FINANCEMENT", "Montant": resources_total},
-    ]
-)
-
-funding_plan_rows = []
-for i in range(5):
-    funding_plan_rows.append({
-        "Année": YEARS[i],
-        "Investissements": capex_total if i == 0 else 0.0,
-        "BFR de démarrage": bfr_startup_total if i == 0 else 0.0,
-        "BFR exploitation": bfr_values[i],
-        "Variation BFR": delta_bfr[i],
-        "CAF": df_global.loc[i, "CAF"],
-        "Remboursement capital": df_global.loc[i, "Remboursement capital"],
-        "Flux net": df_global.loc[i, "Flux net de trésorerie"],
-        "Trésorerie fin d'année": df_global.loc[i, "Trésorerie fin d'année"],
-    })
-df_financing_plan = pd.DataFrame(funding_plan_rows)
-
-funding_gap = resources_total - (capex_total + bfr_startup_total)
-df_funding_structure = pd.DataFrame([
-    {"Rubrique": "Apport personnel / capital social", "Montant": equity},
-    {"Rubrique": "Apports en nature", "Montant": in_kind},
-    {"Rubrique": "Compte courant associé", "Montant": shareholder_loan},
-    {"Rubrique": "Prêt bancaire n°1", "Montant": bank_loan_1},
-    {"Rubrique": "Prêt bancaire n°2", "Montant": bank_loan_2},
-    {"Rubrique": "Subvention", "Montant": subsidy},
-    {"Rubrique": "Autre financement", "Montant": other_financing},
-    {"Rubrique": "TOTAL RESSOURCES", "Montant": resources_total},
-    {"Rubrique": "TOTAL BESOINS (Investissements + BFR démarrage)", "Montant": capex_total + bfr_startup_total},
-    {"Rubrique": "Excédent / déficit", "Montant": funding_gap},
-])
-
-charge_summary_rows = []
-for i in range(5):
-    factor = (1 + inflation_rate) ** i
-    charge_summary_rows.append({
-        "Année": YEARS[i],
-        "Salaires + charges": df_salary.loc[i, "Total salaires + charges"],
-        "Charges fixes hors salaires": sum(fixed_non_salary_y1.values()) * factor,
-        "Charges variables": total_variable[i],
-        "Amortissements": total_amort_by_year[i],
-        "Charges financières": df_loans.loc[i, "Intérêts"],
-        "Total charges": total_variable[i] + fixed_totals[i] + total_amort_by_year[i] + df_loans.loc[i, "Intérêts"],
-    })
-df_charge_summary = pd.DataFrame(charge_summary_rows)
-
-revenue_summary_rows = []
-for i in range(5):
-    revenue_summary_rows.append({
-        "Année": YEARS[i],
-        "CA marchandises": revenue_goods[i],
-        "CA services": revenue_services[i],
-        "CA total": total_ca[i],
-        "Croissance CA total %": 0.0 if i == 0 else safe_div(total_ca[i] - total_ca[i - 1], total_ca[i - 1]),
-    })
-df_revenue_summary = pd.DataFrame(revenue_summary_rows)
-
-df_bfr_startup = pd.DataFrame([
-    {"Rubrique": "Achats (3 mois)", "Montant": startup_purchases},
-    {"Rubrique": "Loyers (3 mois)", "Montant": startup_rent},
-    {"Rubrique": "Charges de personnel (3 mois)", "Montant": startup_payroll},
-    {"Rubrique": "Redevance crédit-bail", "Montant": startup_leasing},
-    {"Rubrique": "TOTAL BFR DE DÉMARRAGE", "Montant": bfr_startup_total},
-])
-
-df_bfr = pd.DataFrame({
-    "Année": YEARS,
-    "CA": total_ca,
-    "Charges variables": total_variable,
-    "BFR exploitation": bfr_values,
-    "Variation BFR": delta_bfr,
-})
-
-monthly_total_sales = monthly_goods_y1 + monthly_services_y1
-monthly_variable_total = (
-    monthly_goods_y1 * goods_purchase_rate
-    + monthly_services_y1 * service_variable_rate
-    + monthly_total_sales * other_variable_rate
-)
-
-monthly_fixed_base = (sum(fixed_non_salary_y1.values()) + df_salary.loc[0, "Total salaires + charges"]) / 12
-monthly_interest = df_loans.loc[0, "Intérêts"] / 12
-monthly_principal = df_loans.loc[0, "Remboursement capital"] / 12
-monthly_amort = total_amort_by_year[0] / 12
-
-client_delay_months = int(round(client_days / 30))
-supplier_delay_months = int(round(supplier_days / 30))
-
-monthly_cash_rows = []
-monthly_cash_balance = start_cash + resources_total - capex_total - bfr_startup_total
-
-for i, month in enumerate(MONTHS):
-    collected = monthly_total_sales[i] if client_delay_months == 0 else (monthly_total_sales[i - client_delay_months] if i - client_delay_months >= 0 else 0.0)
-    paid_variable = monthly_variable_total[i] if supplier_delay_months == 0 else (monthly_variable_total[i - supplier_delay_months] if i - supplier_delay_months >= 0 else 0.0)
-
-    fixed_paid = monthly_fixed_base
-    interest_paid = monthly_interest
-    principal_paid = monthly_principal
-
-    net_monthly_cash = collected - paid_variable - fixed_paid - interest_paid - principal_paid
-    monthly_cash_balance += net_monthly_cash
-
-    monthly_cash_rows.append({
-        "Mois": month,
-        "Encaissements": collected,
-        "Charges variables décaissées": paid_variable,
-        "Charges fixes décaissées": fixed_paid,
-        "Intérêts": interest_paid,
-        "Remboursement capital": principal_paid,
-        "Amortissements non décaissés": monthly_amort,
-        "Flux net mensuel": net_monthly_cash,
-        "Trésorerie fin de mois": monthly_cash_balance,
-    })
-
-df_monthly_cash = pd.DataFrame(monthly_cash_rows)
-
-breakeven_df = pd.DataFrame({
-    "Année": YEARS,
-    "Charges fixes": fixed_totals,
-    "Taux de marge sur coûts variables": tmcv,
-    "Seuil de rentabilité": seuil_rentabilite,
-    "Marge de sécurité": [total_ca[i] - seuil_rentabilite[i] for i in range(5)],
-    "Marge de sécurité %": [safe_div(total_ca[i] - seuil_rentabilite[i], total_ca[i]) for i in range(5)],
-})
-
-diagnostic = generate_diagnostics(df_global, df_monthly_cash, funding_gap, breakeven_df)
-
-# =========================================================
-# PRINT TAB
-# =========================================================
-with print_tab:
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Investissements initiaux", fmt_mad(capex_total))
-    m2.metric("BFR de démarrage", fmt_mad(bfr_startup_total))
-    m3.metric("CA année 1", fmt_mad(df_global.loc[0, "CA"]))
-    m4.metric("Résultat net année 1", fmt_mad(df_global.loc[0, "Résultat net"]))
-    m5.metric("Trésorerie fin année 5", fmt_mad(df_global.loc[4, "Trésorerie fin d'année"]))
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Investissements et financements</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_invest_finance, exclude=["Rubrique"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Structure de financement du projet</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_funding_structure, exclude=["Rubrique"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    c3, c4 = st.columns(2)
-    with c3:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Plan de financement sur 5 ans</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_financing_plan, exclude=["Année"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c4:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Seuil de rentabilité économique</div>', unsafe_allow_html=True)
-        st.dataframe(
-            pct_money_styler(
-                breakeven_df,
-                pct_cols=["Taux de marge sur coûts variables", "Marge de sécurité %"],
-                exclude=["Année"],
-            ),
-            use_container_width=True,
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    c5, c6 = st.columns(2)
-    with c5:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Salaires et charges sociales</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_salary, exclude=["Année"]), use_container_width=True)
-        st.markdown("<p class='small-note'>Détail année 1</p>", unsafe_allow_html=True)
-        st.dataframe(money_styler(df_salary_detail, exclude=["Poste", "Effectif"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c6:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Détail des amortissements</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_amort, exclude=["Poste", "Durée"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    c7, c8 = st.columns(2)
-    with c7:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Synthèse des charges</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_charge_summary, exclude=["Année"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c8:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Synthèse du chiffre d\'affaires</div>', unsafe_allow_html=True)
-        st.dataframe(
-            pct_money_styler(df_revenue_summary, pct_cols=["Croissance CA total %"], exclude=["Année"]),
-            use_container_width=True,
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    c9, c10 = st.columns(2)
-    with c9:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Compte de résultat prévisionnel sur 5 ans</div>', unsafe_allow_html=True)
-        cr_cols = [
-            "Année", "CA", "Charges variables", "Marge brute", "Charges fixes", "EBITDA",
-            "Amortissements", "EBIT", "Charges financières", "Résultat avant impôt", "Impôt", "Résultat net"
-        ]
-        st.dataframe(money_styler(df_global[cr_cols], exclude=["Année"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c10:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Soldes intermédiaires de gestion</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_sig, exclude=["Année"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    c11, c12 = st.columns(2)
-    with c11:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">BFR de démarrage</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_bfr_startup, exclude=["Rubrique"]), use_container_width=True)
-        st.markdown("<p class='small-note'>Logique inspirée du fichier : achats 3 mois + loyers 3 mois + charges de personnel 3 mois + redevance crédit-bail.</p>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c12:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">BFR d\'exploitation</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_bfr, exclude=["Année"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    c13, c14 = st.columns(2)
-    with c13:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Budget prévisionnel de trésorerie - année 1</div>', unsafe_allow_html=True)
-        st.dataframe(money_styler(df_monthly_cash, exclude=["Mois"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c14:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Cash-flow du projet</div>', unsafe_allow_html=True)
-        cashflow_df = df_global[
-            [
-                "Année", "CAF", "Variation BFR", "Remboursement capital",
-                "Investissements initiaux", "BFR de démarrage", "Ressources initiales",
-                "Flux net de trésorerie", "Trésorerie fin d'année"
-            ]
-        ].copy()
-        st.dataframe(money_styler(cashflow_df, exclude=["Année"]), use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Tableau des emprunts</div>', unsafe_allow_html=True)
-    st.dataframe(money_styler(df_loans, exclude=["Année"]), use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# =========================================================
-# REPORT TAB
-# =========================================================
-with report_tab:
-    treso_fin_5 = fmt_mad(df_global.loc[4, "Trésorerie fin d'année"])
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Résumé exécutif</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Dictionnaire des formules</div>', unsafe_allow_html=True)
+    st.dataframe(df_formula_reference, use_container_width=True, height=650)
     st.markdown(
-        f"""
-**Projet analysé :** {project_name}  
-**Porteur :** {project_holder}  
-**Secteur :** {sector}  
-**Ville :** {city}  
-**Statut juridique :** {legal_status}  
-**Horizon étudié :** 5 ans  
-
-Le projet mobilise **{fmt_mad(capex_total)}** d'investissements initiaux.  
-Le **BFR de démarrage** est estimé à **{fmt_mad(bfr_startup_total)}**.  
-Les ressources initiales ressortent à **{fmt_mad(resources_total)}**.  
-Le chiffre d'affaires prévisionnel passe de **{fmt_mad(df_global.loc[0, 'CA'])}** en année 1 à **{fmt_mad(df_global.loc[4, 'CA'])}** en année 5.  
-Le résultat net évolue de **{fmt_mad(df_global.loc[0, 'Résultat net'])}** en année 1 à **{fmt_mad(df_global.loc[4, 'Résultat net'])}** en année 5.  
-La trésorerie de fin de période atteint **{treso_fin_5}**.
-        """
+        "<p class='sub-note'>Cette rubrique contient uniquement le dictionnaire des formules, méthodes de calcul, ratios, indicateurs et KPI utilisés dans l’outil.</p>",
+        unsafe_allow_html=True
     )
     st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Diagnostic expert automatique</div>', unsafe_allow_html=True)
-    for level, text in diagnostic:
-        css = "good-box" if level == "good" else "warn-box" if level == "warn" else "risk-box"
-        st.markdown(f"<div class='{css}'>{text}</div>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    recommendations = []
-    if funding_gap < 0:
-        recommendations.append(f"Compléter le financement initial d'environ {fmt_mad(abs(funding_gap))} pour couvrir intégralement investissements et BFR de démarrage.")
-    if df_monthly_cash["Trésorerie fin de mois"].min() < 0:
-        recommendations.append("Prévoir une ligne de trésorerie court terme ou une trésorerie de départ plus élevée pour absorber les tensions de cash de l'année 1.")
-    if df_global.loc[0, "Marge EBITDA %"] < 0.08:
-        recommendations.append("Revoir la politique tarifaire, le niveau d'activité ou la structure de charges afin d'améliorer la rentabilité opérationnelle.")
-    if df_global.loc[0, "Poids annuité / CA %"] > 0.15:
-        recommendations.append("Négocier une durée d'endettement plus longue ou un différé afin d'alléger les sorties de cash au démarrage.")
-    if breakeven_df.loc[0, "Marge de sécurité %"] < 0.10:
-        recommendations.append("Sécuriser un volume minimal d'activité, car le seuil de rentabilité est proche du CA prévisionnel.")
-    if not recommendations:
-        recommendations = [
-            "Le business plan paraît cohérent sur la base des hypothèses saisies.",
-            "Actualiser le prévisionnel tous les trimestres à partir des réalisations pour piloter les écarts.",
-            "Suivre mensuellement le BFR, les encaissements et la masse salariale pour sécuriser la trajectoire de trésorerie.",
-        ]
-
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Interprétation et recommandations</div>', unsafe_allow_html=True)
-    for idx, reco in enumerate(recommendations, start=1):
-        st.markdown(f"**{idx}.** {reco}")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    g1, g2 = st.columns(2)
-    with g1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        fig1 = go.Figure()
-        fig1.add_trace(go.Bar(x=df_global["Année"], y=df_global["CA"], name="CA"))
-        fig1.add_trace(go.Scatter(x=df_global["Année"], y=df_global["Résultat net"], mode="lines+markers", name="Résultat net"))
-        fig1.update_layout(title="Évolution du CA et du résultat net", template="plotly_dark", height=420)
-        st.plotly_chart(fig1, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with g2:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(x=df_global["Année"], y=df_global["Trésorerie fin d'année"], mode="lines+markers", name="Trésorerie"))
-        fig2.update_layout(title="Évolution de la trésorerie", template="plotly_dark", height=420)
-        st.plotly_chart(fig2, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    g3, g4 = st.columns(2)
-    with g3:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        fig3 = px.bar(df_bfr, x="Année", y=["BFR exploitation", "Variation BFR"], barmode="group", template="plotly_dark", title="BFR et variation du BFR")
-        fig3.update_layout(height=420)
-        st.plotly_chart(fig3, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with g4:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        fig4 = px.bar(
-            df_charge_summary,
-            x="Année",
-            y=["Salaires + charges", "Charges fixes hors salaires", "Charges variables"],
-            barmode="stack",
-            template="plotly_dark",
-            title="Structure des charges",
-        )
-        fig4.update_layout(height=420)
-        st.plotly_chart(fig4, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    g5, g6 = st.columns(2)
-    with g5:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        fig5 = px.line(df_monthly_cash, x="Mois", y="Trésorerie fin de mois", template="plotly_dark", title="Trésorerie mensuelle année 1")
-        fig5.update_layout(height=420)
-        st.plotly_chart(fig5, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with g6:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        fig6 = px.bar(df_revenue_summary, x="Année", y=["CA marchandises", "CA services"], barmode="stack", template="plotly_dark", title="Composition du chiffre d'affaires")
-        fig6.update_layout(height=420)
-        st.plotly_chart(fig6, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
 # =========================================================
 # EXPORT TAB
 # =========================================================
-with export_tab:
-    excel_frames = {
-        "Données synthèse": {"df": df_global, "pct_cols": ["Taux marge brute %", "Marge EBITDA %", "Marge nette %", "Poids annuité / CA %"]},
-        "Investissements financements": {"df": df_invest_finance},
-        "Structure financement": {"df": df_funding_structure},
-        "Plan financement 5 ans": {"df": df_financing_plan},
-        "Seuil rentabilité": {"df": breakeven_df, "pct_cols": ["Taux de marge sur coûts variables", "Marge de sécurité %"]},
-        "Salaires": {"df": df_salary},
-        "Détail salaires": {"df": df_salary_detail},
-        "Charges fixes détail": {"df": df_fixed_detail},
-        "Amortissements": {"df": df_amort},
-        "Synthèse charges": {"df": df_charge_summary},
-        "Synthèse CA": {"df": df_revenue_summary, "pct_cols": ["Croissance CA total %"]},
-        "Compte résultat": {
-            "df": df_global[
-                ["Année", "CA", "Charges variables", "Marge brute", "Charges fixes", "EBITDA",
-                 "Amortissements", "EBIT", "Charges financières", "Résultat avant impôt", "Impôt", "Résultat net"]
-            ]
-        },
-        "SIG": {"df": df_sig},
-        "BFR démarrage": {"df": df_bfr_startup},
-        "BFR exploitation": {"df": df_bfr},
-        "Trésorerie mensuelle": {"df": df_monthly_cash},
-        "Cash-flow projet": {
-            "df": df_global[
-                ["Année", "CAF", "Variation BFR", "Remboursement capital", "Investissements initiaux",
-                 "BFR de démarrage", "Ressources initiales", "Flux net de trésorerie", "Trésorerie fin d'année"]
-            ]
-        },
-        "Emprunts": {"df": df_loans},
-    }
-
-    excel_file = make_excel_export(excel_frames)
-    treso_fin_5_pdf = fmt_mad(df_global.loc[4, "Trésorerie fin d'année"])
-    summary_text_pdf = (
-        f"<b>Projet :</b> {project_name}<br/>"
-        f"<b>Porteur :</b> {project_holder}<br/>"
-        f"<b>Ville :</b> {city}<br/>"
-        f"<b>Statut :</b> {legal_status}<br/>"
-        f"<b>Investissements initiaux :</b> {fmt_mad(capex_total)}<br/>"
-        f"<b>BFR de démarrage :</b> {fmt_mad(bfr_startup_total)}<br/>"
-        f"<b>Ressources initiales :</b> {fmt_mad(resources_total)}<br/>"
-        f"<b>CA année 1 :</b> {fmt_mad(df_global.loc[0, 'CA'])}<br/>"
-        f"<b>CA année 5 :</b> {fmt_mad(df_global.loc[4, 'CA'])}<br/>"
-        f"<b>Résultat net année 1 :</b> {fmt_mad(df_global.loc[0, 'Résultat net'])}<br/>"
-        f"<b>Résultat net année 5 :</b> {fmt_mad(df_global.loc[4, 'Résultat net'])}<br/>"
-        f"<b>Trésorerie fin année 5 :</b> {treso_fin_5_pdf}"
-    )
-
-    pdf_tables = {
-        "Compte de résultat prévisionnel": {
-            "df": df_global[
-                ["Année", "CA", "Charges variables", "Marge brute", "Charges fixes", "EBITDA",
-                 "Amortissements", "EBIT", "Charges financières", "Résultat avant impôt", "Impôt", "Résultat net"]
-            ]
-        },
-        "Plan de financement 5 ans": {"df": df_financing_plan},
-        "BFR de démarrage": {"df": df_bfr_startup},
-        "BFR d'exploitation": {"df": df_bfr},
-        "Trésorerie mensuelle année 1": {"df": df_monthly_cash},
-        "Amortissements": {"df": df_amort[["Poste", "Montant", "Année 1", "Année 2", "Année 3", "Année 4", "Année 5"]]},
-    }
-
-    pdf_file = make_pdf_report(
-        project_name=project_name,
-        sector=sector,
-        summary_text=summary_text_pdf,
-        diagnostics=diagnostic,
-        tables=pdf_tables,
-    )
-
+with tab_export:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Exports professionnels</div>', unsafe_allow_html=True)
-    st.write("Télécharge le dossier financier complet en Excel multi-onglets ou en PDF de présentation.")
+    st.write("L’Excel exporté garde une présentation structurée type cabinet, avec blocs, titres, années en colonnes et rubriques en lignes. Le PDF reprend la même logique en version imprimable.")
+    excel_bytes = make_excel_file()
+    pdf_bytes = make_pdf_file()
+
     st.download_button(
-        "Télécharger l'étude financière en Excel",
-        data=excel_file,
+        "Télécharger l’étude financière en Excel",
+        data=excel_bytes,
         file_name=f"{project_name.replace(' ', '_')}_etude_financiere.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
     st.download_button(
         "Télécharger le rapport PDF",
-        data=pdf_file,
+        data=pdf_bytes,
         file_name=f"{project_name.replace(' ', '_')}_rapport_financier.pdf",
         mime="application/pdf",
     )
-    st.markdown("<p class='small-note'>requirements.txt : streamlit, pandas, numpy, plotly, xlsxwriter, reportlab, openpyxl</p>", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <p class='sub-note'>
+        requirements.txt minimal :
+        streamlit
+        pandas
+        numpy
+        plotly
+        xlsxwriter
+        reportlab
+        openpyxl
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
@@ -1408,8 +1872,8 @@ with export_tab:
 # =========================================================
 st.markdown(
     """
-    <div style="margin-top:20px; padding:14px; border-top:1px solid rgba(255,255,255,0.08); color:#cbd5e1;">
-        Étude financière complète 5 ans - version Streamlit professionnelle
+    <div style="margin-top:18px; padding:14px; border-top:1px solid #dbe7f6; color:#4b6485;">
+        Étude financière complète 5 ans — version Streamlit professionnelle
     </div>
     """,
     unsafe_allow_html=True,
