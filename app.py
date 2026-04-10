@@ -2,6 +2,7 @@ from io import BytesIO
 from datetime import datetime
 import math
 from pathlib import Path
+import json
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,10 @@ elif LOGO_PATH_JPEG.exists():
     LOGO_PATH = LOGO_PATH_JPEG
 else:
     LOGO_PATH = None
+
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
+SAVE_FILE = DATA_DIR / "financial_inputs.json"
 
 # =========================================================
 # CONFIG
@@ -85,70 +90,122 @@ st.markdown(
     """
     <style>
     html, body, [data-testid="stAppViewContainer"], .main {
-        background: linear-gradient(180deg, #f4f8ff 0%, #eef5ff 100%) !important;
-        color: #10243f !important;
+        background: #f7f4f2 !important;
+        color: #2b2b2b !important;
     }
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f2b57 0%, #15396f 100%) !important;
-        color: white !important;
-        border-right: 1px solid rgba(255,255,255,0.10);
-    }
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
+
     [data-testid="stHeader"] {
         background: rgba(0,0,0,0) !important;
     }
+
     .block-container {
         max-width: 1700px;
         padding-top: 1rem;
         padding-bottom: 2rem;
     }
+
+    [data-testid="stSidebar"] {
+        background: #ffffff !important;
+        border-right: 1px solid #e7deda !important;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #2b2b2b !important;
+    }
+
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] div {
+        color: #2b2b2b !important;
+    }
+
     .card {
-        background: white;
-        border-radius: 20px;
+        background: #ffffff;
+        border-radius: 18px;
         padding: 18px;
         margin-bottom: 16px;
-        border: 1px solid #dbe7f6;
-        box-shadow: 0 8px 24px rgba(10, 50, 90, 0.06);
+        border: 1px solid #eadfda;
+        box-shadow: 0 8px 24px rgba(120, 70, 70, 0.05);
     }
+
     .section-title {
         font-size: 1.08rem;
         font-weight: 800;
-        color: #0f4c81 !important;
+        color: #b7333a !important;
         margin-bottom: 0.65rem;
     }
+
     .sub-note {
         font-size: 0.92rem;
-        color: #4e6788 !important;
+        color: #7a6f6a !important;
     }
+
     div[data-testid="stMetric"] {
         background: white !important;
-        border: 1px solid #dbe7f6 !important;
-        border-radius: 18px !important;
+        border: 1px solid #eadfda !important;
+        border-radius: 16px !important;
         padding: 12px !important;
-        box-shadow: 0 8px 22px rgba(10, 50, 90, 0.05);
+        box-shadow: 0 6px 18px rgba(120, 70, 70, 0.04);
     }
+
     .good-box, .warn-box, .risk-box {
         padding: 12px 14px;
         border-radius: 14px;
         margin-bottom: 10px;
         border: 1px solid transparent;
     }
+
     .good-box {
-        background: #ebfbf4;
-        border-color: #90e0b8;
-        color: #125e36 !important;
+        background: #edf8f0;
+        border-color: #a7d8b0;
+        color: #27623a !important;
     }
+
     .warn-box {
-        background: #fff8e8;
-        border-color: #ffd57a;
+        background: #fff6e8;
+        border-color: #f0c97d;
         color: #8a5a00 !important;
     }
+
     .risk-box {
         background: #fff0f0;
-        border-color: #f0a6a6;
+        border-color: #e7aaaa;
         color: #8b2222 !important;
+    }
+
+    .stButton > button,
+    .stDownloadButton > button,
+    button[kind="primary"] {
+        background: #b7333a !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover,
+    button[kind="primary"]:hover {
+        background: #9e2c33 !important;
+        color: white !important;
+    }
+
+    button[data-baseweb="tab"] {
+        color: #7a6f6a !important;
+        font-weight: 700 !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #b7333a !important;
+        border-bottom: 2px solid #b7333a !important;
+    }
+
+    [data-testid="stDataFrame"] {
+        border: 1px solid #eadfda;
+        border-radius: 14px;
+        overflow: hidden;
     }
     </style>
     """,
@@ -228,20 +285,6 @@ def money_style(df: pd.DataFrame, non_money_cols=None):
     formats = {}
     for col in df.columns:
         if col not in non_money_cols:
-            formats[col] = "{:,.0f}"
-    return df.style.format(formats)
-
-
-def mixed_style(df: pd.DataFrame, percent_cols=None, non_money_cols=None):
-    percent_cols = percent_cols or []
-    non_money_cols = non_money_cols or []
-    formats = {}
-    for col in df.columns:
-        if col in non_money_cols:
-            continue
-        if col in percent_cols:
-            formats[col] = "{:.1%}"
-        else:
             formats[col] = "{:,.0f}"
     return df.style.format(formats)
 
@@ -425,13 +468,6 @@ def build_default_salary_table():
     ])
 
 
-def build_default_ca_table():
-    return pd.DataFrame([
-        {"Rubrique": "Vente de marchandises", "Année 1": 132450.0, "Croissance A2": 0.0, "Croissance A3": 0.10, "Croissance A4": 0.15, "Croissance A5": 0.20},
-        {"Rubrique": "Services", "Année 1": 7064424.0, "Croissance A2": 0.70, "Croissance A3": 0.50, "Croissance A4": 0.40, "Croissance A5": 0.30},
-    ])
-
-
 def build_default_monthly_distribution():
     return pd.DataFrame({
         "Mois": MONTH_LABELS,
@@ -463,6 +499,87 @@ def build_default_taxes_table():
     ])
 
 
+def build_default_ca_services_table():
+    return pd.DataFrame([
+        {
+            "Désignation": "Consultation générale",
+            "Nombre de jours ouvrés par an": 312,
+            "Tarif par consultation": 250.0,
+            "Part clinique (%)": 55.0,
+            "Part médecin (%)": 45.0,
+        },
+        {
+            "Désignation": "Consultation spécialisée",
+            "Nombre de jours ouvrés par an": 312,
+            "Tarif par consultation": 400.0,
+            "Part clinique (%)": 55.0,
+            "Part médecin (%)": 45.0,
+        },
+    ])
+
+
+def df_to_records(df: pd.DataFrame):
+    tmp = df.copy()
+    return tmp.replace({np.nan: None}).to_dict(orient="records")
+
+
+def records_to_df(records, default_df: pd.DataFrame):
+    try:
+        df = pd.DataFrame(records)
+        if df.empty:
+            return default_df.copy()
+        for col in default_df.columns:
+            if col not in df.columns:
+                df[col] = default_df[col].iloc[0] if len(default_df) > 0 else None
+        return df[default_df.columns].copy()
+    except Exception:
+        return default_df.copy()
+
+
+def save_all_inputs():
+    payload = {
+        "investments_df": df_to_records(st.session_state["investments_df"]),
+        "financing_df": df_to_records(st.session_state["financing_df"]),
+        "leasing_df": df_to_records(st.session_state["leasing_df"]),
+        "fixed_df": df_to_records(st.session_state["fixed_df"]),
+        "salary_df": df_to_records(st.session_state["salary_df"]),
+        "ca_services_df": df_to_records(st.session_state["ca_services_df"]),
+        "monthly_dist_df": df_to_records(st.session_state["monthly_dist_df"]),
+        "bfr_days_df": df_to_records(st.session_state["bfr_days_df"]),
+        "taxes_df": df_to_records(st.session_state["taxes_df"]),
+    }
+    with open(SAVE_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def load_all_inputs():
+    if not SAVE_FILE.exists():
+        return None
+    try:
+        with open(SAVE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def reset_all_inputs():
+    st.session_state["investments_df"] = build_default_investments()
+    st.session_state["financing_df"] = build_default_financing()
+    st.session_state["leasing_df"] = build_default_leasing()
+    st.session_state["fixed_df"] = build_default_fixed_charges()
+    st.session_state["salary_df"] = build_default_salary_table()
+    st.session_state["ca_services_df"] = pd.DataFrame(columns=[
+        "Désignation",
+        "Nombre de jours ouvrés par an",
+        "Tarif par consultation",
+        "Part clinique (%)",
+        "Part médecin (%)",
+    ])
+    st.session_state["monthly_dist_df"] = build_default_monthly_distribution()
+    st.session_state["bfr_days_df"] = build_default_bfr_days()
+    st.session_state["taxes_df"] = build_default_taxes_table()
+
+
 def ensure_state():
     defaults = {
         "investments_df": build_default_investments(),
@@ -470,14 +587,32 @@ def ensure_state():
         "leasing_df": build_default_leasing(),
         "fixed_df": build_default_fixed_charges(),
         "salary_df": build_default_salary_table(),
-        "ca_df": build_default_ca_table(),
+        "ca_services_df": build_default_ca_services_table(),
         "monthly_dist_df": build_default_monthly_distribution(),
         "bfr_days_df": build_default_bfr_days(),
         "taxes_df": build_default_taxes_table(),
     }
+
+    loaded = load_all_inputs()
+
     for key, value in defaults.items():
         if key not in st.session_state:
-            st.session_state[key] = value
+            if loaded and key in loaded:
+                st.session_state[key] = records_to_df(loaded[key], value)
+            else:
+                st.session_state[key] = value
+
+
+def render_editor_stateful(state_key, editor_key, column_config=None, num_rows="dynamic"):
+    edited_df = st.data_editor(
+        st.session_state[state_key].copy(),
+        use_container_width=True,
+        num_rows=num_rows,
+        key=editor_key,
+        column_config=column_config or {},
+    )
+    st.session_state[state_key] = edited_df.copy()
+    return edited_df
 
 
 ensure_state()
@@ -487,7 +622,14 @@ ensure_state()
 # =========================================================
 with st.sidebar:
     if LOGO_PATH and LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width=170)
+        st.markdown(
+            """
+            <div style="display:flex; justify-content:flex-start; align-items:center; padding:6px 0 14px 0;">
+            """,
+            unsafe_allow_html=True
+        )
+        st.image(str(LOGO_PATH), width=220)
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.warning("Logo introuvable dans assets/logo.png")
 
@@ -498,10 +640,7 @@ with st.sidebar:
         "Statut juridique",
         ["Micro-entreprise", "Entreprise individuelle au réel (IR)", "EURL (IS)", "SARL (IS)", "SAS (IS)", "SASU (IS)", "Autre"]
     )
-    activity_nature = st.selectbox(
-        "Nature de l'activité",
-        ["Services", "Marchandises", "Mixte"]
-    )
+    activity_nature = st.selectbox("Nature de l'activité", ["Services", "Marchandises", "Mixte"])
     city = st.text_input("Ville / commune", value="ERRAHMA")
     phone = st.text_input("Téléphone", value="")
     email = st.text_input("E-mail", value="")
@@ -520,24 +659,24 @@ with st.sidebar:
 # HERO
 # =========================================================
 st.markdown(
-    """
+    f"""
     <div style="
-        background: linear-gradient(135deg, #0f4c81 0%, #2f7cc0 55%, #57b4d3 100%);
+        background: linear-gradient(rgba(255,255,255,0.82), rgba(255,255,255,0.82)),
+                    url('https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&w=1600&auto=format&fit=crop') center/cover no-repeat;
         border-radius: 24px;
-        padding: 26px 28px;
-        color: white;
-        box-shadow: 0 14px 35px rgba(8, 41, 77, 0.18);
-        border: 1px solid rgba(255,255,255,0.22);
-        margin-bottom: 14px;
+        padding: 44px 32px;
+        border: 1px solid #eadfda;
+        margin-bottom: 18px;
+        text-align:center;
     ">
-        <div style="font-size:16px; font-weight:700; margin-bottom:8px;">
+        <div style="font-size:16px; font-weight:700; color:#b7333a; margin-bottom:10px;">
             EDDAQAQ EXPERTISES
         </div>
-        <div style="font-size:38px; font-weight:800; line-height:1.2; margin-bottom:8px;">
-            Étude financière prévisionnelle sur 5 ans
+        <div style="font-size:52px; font-weight:800; line-height:1.05; color:#b7333a; margin-bottom:12px;">
+            Expert consultant<br>Pour votre Entreprise
         </div>
-        <div style="font-size:16px; opacity:0.95;">
-            Clinique Multidisciplinaire – Société CLINIQUE CAMILIA
+        <div style="font-size:16px; color:#645a56;">
+            Étude financière prévisionnelle sur 5 ans - {project_name}
         </div>
     </div>
     """,
@@ -559,6 +698,21 @@ tab_input, tab_print, tab_report, tab_calc, tab_export = st.tabs([
 # INPUT TAB
 # =========================================================
 with tab_input:
+    action_col1, action_col2, _ = st.columns([1.2, 1.2, 4])
+
+    with action_col1:
+        if st.button("💾 Enregistrer les données", use_container_width=True):
+            save_all_inputs()
+            st.success("Les données ont été enregistrées avec succès.")
+
+    with action_col2:
+        if st.button("🧹 Vider / Réinitialiser", use_container_width=True):
+            reset_all_inputs()
+            if SAVE_FILE.exists():
+                SAVE_FILE.unlink()
+            st.warning("Toutes les colonnes ont été réinitialisées.")
+            st.rerun()
+
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">A. Identité du projet</div>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
@@ -576,22 +730,15 @@ with tab_input:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">B. Besoins de démarrage</div>', unsafe_allow_html=True)
     st.markdown("<p class='sub-note'>Renseigne ici uniquement les montants et les durées. L’amortissement, la synthèse investissements et le plan de financement se calculent automatiquement.</p>", unsafe_allow_html=True)
-    investments_df = st.data_editor(
-        st.session_state["investments_df"],
-        use_container_width=True,
-        num_rows="dynamic",
-        key="editor_investments"
-    )
-    st.session_state["investments_df"] = investments_df
+    investments_df = render_editor_stateful("investments_df", "editor_investments", num_rows="dynamic")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">C. Financement du projet</div>', unsafe_allow_html=True)
-    financing_df = st.data_editor(
-        st.session_state["financing_df"],
-        use_container_width=True,
+    financing_df = render_editor_stateful(
+        "financing_df",
+        "editor_financing",
         num_rows="dynamic",
-        key="editor_financing",
         column_config={
             "Type": st.column_config.SelectboxColumn(
                 "Type",
@@ -599,63 +746,74 @@ with tab_input:
             )
         }
     )
-    st.session_state["financing_df"] = financing_df
     st.markdown("<p class='sub-note'>Pour les lignes de type Emprunt, renseigne le montant, le taux, la durée en mois et le différé éventuel.</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">D. Contrats de crédit-bail / leasing</div>', unsafe_allow_html=True)
-    leasing_df = st.data_editor(
-        st.session_state["leasing_df"],
-        use_container_width=True,
-        num_rows="dynamic",
-        key="editor_leasing"
-    )
-    st.session_state["leasing_df"] = leasing_df
+    leasing_df = render_editor_stateful("leasing_df", "editor_leasing", num_rows="dynamic")
     st.markdown("<p class='sub-note'>L’outil calcule automatiquement les redevances annuelles par année à partir des mensualités TTC.</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">E. Salaires et charges sociales</div>', unsafe_allow_html=True)
-    salary_df = st.data_editor(
-        st.session_state["salary_df"],
-        use_container_width=True,
-        num_rows="dynamic",
-        key="editor_salary"
-    )
-    st.session_state["salary_df"] = salary_df
+    salary_df = render_editor_stateful("salary_df", "editor_salary", num_rows="dynamic")
     st.markdown("<p class='sub-note'>Saisir le salaire brut mensuel et l’effectif par année. La masse salariale et les charges sociales se calculent seules.</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">F. Charges fixes hors salaires</div>', unsafe_allow_html=True)
-    fixed_df = st.data_editor(
-        st.session_state["fixed_df"],
-        use_container_width=True,
-        num_rows="dynamic",
-        key="editor_fixed"
-    )
-    st.session_state["fixed_df"] = fixed_df
+    fixed_df = render_editor_stateful("fixed_df", "editor_fixed", num_rows="dynamic")
     st.markdown("<p class='sub-note'>Tu peux modifier directement chaque année. Donc pas d’inversion lignes/colonnes dans le résultat final.</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">G. Chiffre d’affaires prévisionnel</div>', unsafe_allow_html=True)
-    ca_df = st.data_editor(
-        st.session_state["ca_df"],
-        use_container_width=True,
-        num_rows="dynamic",
-        key="editor_ca"
-    )
-    st.session_state["ca_df"] = ca_df
+    st.markdown("<p class='sub-note'>Saisis ici les consultations ou actes. La part clinique et la part médecin se calculent automatiquement sur la base du tarif et des pourcentages.</p>", unsafe_allow_html=True)
 
-    dist_df = st.data_editor(
-        st.session_state["monthly_dist_df"],
-        use_container_width=True,
-        key="editor_month_dist"
+    ca_services_df = render_editor_stateful(
+        "ca_services_df",
+        "editor_ca_services",
+        num_rows="dynamic",
+        column_config={
+            "Désignation": st.column_config.TextColumn("Désignations"),
+            "Nombre de jours ouvrés par an": st.column_config.NumberColumn("Nombre de jours ouvrés par an", min_value=0, step=1),
+            "Tarif par consultation": st.column_config.NumberColumn("Tarif par consultation", min_value=0.0, step=10.0, format="%.2f"),
+            "Part clinique (%)": st.column_config.NumberColumn("Part clinique", min_value=0.0, max_value=100.0, step=1.0, format="%.1f"),
+            "Part médecin (%)": st.column_config.NumberColumn("Part médecin", min_value=0.0, max_value=100.0, step=1.0, format="%.1f"),
+        }
     )
-    st.session_state["monthly_dist_df"] = dist_df
-    st.markdown("<p class='sub-note'>Le CA années 2 à 5 est calculé automatiquement à partir des croissances. La répartition mensuelle sert au budget de trésorerie de l’année 1.</p>", unsafe_allow_html=True)
+
+    ca_services_preview = ca_services_df.copy()
+    for col in ["Nombre de jours ouvrés par an", "Tarif par consultation", "Part clinique (%)", "Part médecin (%)"]:
+        ca_services_preview[col] = pd.to_numeric(ca_services_preview[col], errors="coerce").fillna(0.0)
+
+    if not ca_services_preview.empty:
+        ca_services_preview["CA brut annuel"] = (
+            ca_services_preview["Nombre de jours ouvrés par an"] *
+            ca_services_preview["Tarif par consultation"]
+        )
+        ca_services_preview["CA part clinique"] = (
+            ca_services_preview["CA brut annuel"] *
+            ca_services_preview["Part clinique (%)"] / 100
+        )
+        ca_services_preview["CA part médecin"] = (
+            ca_services_preview["CA brut annuel"] *
+            ca_services_preview["Part médecin (%)"] / 100
+        )
+        ca_services_preview["Total répartition %"] = (
+            ca_services_preview["Part clinique (%)"] +
+            ca_services_preview["Part médecin (%)"]
+        )
+
+    st.markdown("<p class='sub-note'>Aperçu des montants calculés :</p>", unsafe_allow_html=True)
+    st.dataframe(ca_services_preview, use_container_width=True)
+
+    invalid_rows = ca_services_preview[ca_services_preview["Total répartition %"] != 100] if not ca_services_preview.empty else pd.DataFrame()
+    if not invalid_rows.empty:
+        st.warning("Attention : pour certaines lignes, Part clinique + Part médecin est différente de 100%.")
+
+    dist_df = render_editor_stateful("monthly_dist_df", "editor_month_dist", num_rows="fixed")
     st.markdown("</div>", unsafe_allow_html=True)
 
     cc1, cc2 = st.columns(2)
@@ -668,23 +826,13 @@ with tab_input:
         office_supplies_rate = st.number_input("Fournitures bureau / CA total (%)", min_value=0.0, value=2.0, step=0.5) / 100
         other_variable_rate = st.number_input("Autres variables / CA total (%)", min_value=0.0, value=0.0, step=0.5) / 100
 
-        bfr_days_df = st.data_editor(
-            st.session_state["bfr_days_df"],
-            use_container_width=True,
-            key="editor_bfr_days"
-        )
-        st.session_state["bfr_days_df"] = bfr_days_df
+        bfr_days_df = render_editor_stateful("bfr_days_df", "editor_bfr_days", num_rows="dynamic")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with cc2:
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">I. Impôts, taxes et paramètres</div>', unsafe_allow_html=True)
-        taxes_df = st.data_editor(
-            st.session_state["taxes_df"],
-            use_container_width=True,
-            key="editor_taxes"
-        )
-        st.session_state["taxes_df"] = taxes_df
+        taxes_df = render_editor_stateful("taxes_df", "editor_taxes", num_rows="dynamic")
 
         waste_kg_month = st.number_input("Déchets médicaux (kg / mois)", min_value=0.0, value=3500.0, step=100.0)
         waste_cost_per_kg = st.number_input("Coût traitement déchets par kg", min_value=0.0, value=6.0, step=0.5)
@@ -700,15 +848,19 @@ financing_df = st.session_state["financing_df"].copy()
 leasing_df = st.session_state["leasing_df"].copy()
 salary_df = st.session_state["salary_df"].copy()
 fixed_df = st.session_state["fixed_df"].copy()
-ca_df = st.session_state["ca_df"].copy()
+ca_services_df = st.session_state["ca_services_df"].copy()
 dist_df = st.session_state["monthly_dist_df"].copy()
 bfr_days_df = st.session_state["bfr_days_df"].copy()
 taxes_df = st.session_state["taxes_df"].copy()
 
-for df in [investments_df, financing_df, leasing_df, salary_df, fixed_df, ca_df, dist_df, bfr_days_df, taxes_df]:
+for df in [investments_df, financing_df, leasing_df, salary_df, fixed_df, dist_df, bfr_days_df, taxes_df]:
     for col in df.columns:
         if col not in ["Rubrique", "Source", "Type", "Contrat", "Poste", "Mois"]:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+
+for col in ["Nombre de jours ouvrés par an", "Tarif par consultation", "Part clinique (%)", "Part médecin (%)"]:
+    if col in ca_services_df.columns:
+        ca_services_df[col] = pd.to_numeric(ca_services_df[col], errors="coerce").fillna(0.0)
 
 investment_rows = []
 amort_rows = []
@@ -819,7 +971,6 @@ for _, r in salary_df.iterrows():
         total_year = gross_year + social_year
 
         row[y] = total_year
-
         salary_year_totals_gross[idx] += gross_year
         salary_year_totals_social[idx] += social_year
         salary_year_totals_total[idx] += total_year
@@ -833,48 +984,55 @@ df_salary_summary = to_year_columns_df({
     "Total salaires + charges": salary_year_totals_total,
 }, first_col_name="Rubrique")
 
-fixed_total_years = []
-for y in YEAR_LABELS:
-    fixed_total_years.append(fixed_df[y].sum())
+fixed_total_years = [fixed_df[y].sum() for y in YEAR_LABELS]
+
+ca_services_df_calc = ca_services_df.copy()
+if not ca_services_df_calc.empty:
+    ca_services_df_calc["CA brut annuel"] = (
+        ca_services_df_calc["Nombre de jours ouvrés par an"] *
+        ca_services_df_calc["Tarif par consultation"]
+    )
+    ca_services_df_calc["CA part clinique"] = (
+        ca_services_df_calc["CA brut annuel"] *
+        ca_services_df_calc["Part clinique (%)"] / 100
+    )
+    ca_services_df_calc["CA part médecin"] = (
+        ca_services_df_calc["CA brut annuel"] *
+        ca_services_df_calc["Part médecin (%)"] / 100
+    )
+else:
+    ca_services_df_calc["CA brut annuel"] = []
+    ca_services_df_calc["CA part clinique"] = []
+    ca_services_df_calc["CA part médecin"] = []
 
 ca_years_goods = [0.0] * 5
-ca_years_services = [0.0] * 5
-ca_detail_rows = []
+ca_years_services = [ca_services_df_calc["CA part clinique"].sum()] * 5
+ca_total_years = [ca_services_df_calc["CA brut annuel"].sum()] * 5
 
-for _, r in ca_df.iterrows():
-    label = str(r["Rubrique"])
-    y1 = n(r["Année 1"])
-    g2 = n(r["Croissance A2"])
-    g3 = n(r["Croissance A3"])
-    g4 = n(r["Croissance A4"])
-    g5 = n(r["Croissance A5"])
-    series = growth_series(y1, [g2, g3, g4, g5])
-
-    detail_row = {"Rubrique": label}
-    for idx, y in enumerate(YEAR_LABELS):
-        detail_row[y] = series[idx]
-
-    if "marchandise" in label.lower():
-        for idx in range(5):
-            ca_years_goods[idx] += series[idx]
-    else:
-        for idx in range(5):
-            ca_years_services[idx] += series[idx]
-
-    ca_detail_rows.append(detail_row)
-
-df_ca_detail = pd.DataFrame(ca_detail_rows)
-ca_total_years = [ca_years_goods[i] + ca_years_services[i] for i in range(5)]
+df_ca_detail = pd.DataFrame([
+    {
+        "Rubrique": "CA clinique",
+        "Année 1": ca_years_services[0],
+        "Année 2": ca_years_services[1],
+        "Année 3": ca_years_services[2],
+        "Année 4": ca_years_services[3],
+        "Année 5": ca_years_services[4],
+    },
+    {
+        "Rubrique": "CA total",
+        "Année 1": ca_total_years[0],
+        "Année 2": ca_total_years[1],
+        "Année 3": ca_total_years[2],
+        "Année 4": ca_total_years[3],
+        "Année 5": ca_total_years[4],
+    },
+])
 
 df_ca_summary = to_year_columns_df({
     "CA marchandises": ca_years_goods,
     "CA services": ca_years_services,
     "CA total": ca_total_years,
 }, first_col_name="Rubrique")
-
-growth_total = [0.0]
-for iyr in range(1, 5):
-    growth_total.append(safe_div(ca_total_years[iyr] - ca_total_years[iyr - 1], ca_total_years[iyr - 1]))
 
 goods_purchases = [v * goods_purchase_rate for v in ca_years_goods]
 medical_consumables = [v * medical_consumables_rate for v in ca_years_services]
@@ -1157,8 +1315,12 @@ treasury_rows = []
 cash_month = initial_cash_balance
 
 for im, month in enumerate(MONTH_LABELS):
-    collected = monthly_total_sales[im] if client_delay_months == 0 else (monthly_total_sales[im - client_delay_months] if im - client_delay_months >= 0 else 0.0)
-    paid_var = monthly_variable[im] if supplier_delay_months == 0 else (monthly_variable[im - supplier_delay_months] if im - supplier_delay_months >= 0 else 0.0)
+    collected = monthly_total_sales[im] if client_delay_months == 0 else (
+        monthly_total_sales[im - client_delay_months] if im - client_delay_months >= 0 else 0.0
+    )
+    paid_var = monthly_variable[im] if supplier_delay_months == 0 else (
+        monthly_variable[im - supplier_delay_months] if im - supplier_delay_months >= 0 else 0.0
+    )
 
     net_m = collected - paid_var - monthly_fixed_disbursed - monthly_interest_y1 - monthly_principal_y1
     cash_month += net_m
@@ -1313,7 +1475,7 @@ with tab_print:
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Synthèse du chiffre d’affaires</div>', unsafe_allow_html=True)
         st.dataframe(money_style(df_ca_summary, non_money_cols=["Rubrique"]), use_container_width=True)
-        st.markdown("<p class='sub-note'>Les croissances sont calculées automatiquement à partir des hypothèses de la zone Données à saisir.</p>", unsafe_allow_html=True)
+        st.markdown("<p class='sub-note'>Les montants proviennent de la rubrique consultations / parts clinique-médecin saisie dans Données à saisir.</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     col9, col10 = st.columns(2)
@@ -1409,7 +1571,7 @@ with tab_report:
         recommendations = [
             "Le montage financier paraît cohérent au regard des hypothèses saisies.",
             "Mettre à jour le prévisionnel chaque trimestre avec les réalisations effectives.",
-            "Suivre mensuellement les encaissements, le BFR et la masse salariale."
+            "Suivre mensuellement les encaissements, le BFR et la masse salariale.",
         ]
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -1431,7 +1593,13 @@ with tab_report:
 
     with g2:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        fig2 = px.line(pd.DataFrame({"Année": YEAR_LABELS, "Trésorerie": ending_cash}), x="Année", y="Trésorerie", markers=True, title="Évolution de la trésorerie")
+        fig2 = px.line(
+            pd.DataFrame({"Année": YEAR_LABELS, "Trésorerie": ending_cash}),
+            x="Année",
+            y="Trésorerie",
+            markers=True,
+            title="Évolution de la trésorerie",
+        )
         fig2.update_layout(height=420)
         st.plotly_chart(fig2, use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1544,7 +1712,6 @@ def write_block_to_sheet(
                 else:
                     worksheet.write(start_row + r_idx, c_idx, val, fmt_text)
 
-    # widths
     worksheet.set_column(0, 0, 38)
     for c_idx in range(1, ncols):
         worksheet.set_column(c_idx, c_idx, 16)
@@ -1558,7 +1725,6 @@ def make_excel_file():
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         workbook = writer.book
 
-        # formats
         cover_fmt = workbook.add_format({
             "bold": True,
             "font_color": "white",
@@ -1578,7 +1744,6 @@ def make_excel_file():
         text_fmt = workbook.add_format({"border": 1})
         money_fmt = workbook.add_format({"border": 1, "num_format": "#,##0;[Red]-#,##0"})
 
-        # Sheet 1 - Données à saisir
         ws_input = workbook.add_worksheet("Données à saisir")
         writer.sheets["Données à saisir"] = ws_input
         ws_input.merge_range("A1:F1", "DONNÉES À SAISIR", cover_fmt)
@@ -1600,7 +1765,7 @@ def make_excel_file():
             ("Crédit-bail / Leasing", leasing_df),
             ("Salaires", salary_df),
             ("Charges fixes", fixed_df),
-            ("Chiffre d'affaires", ca_df),
+            ("Chiffre d'affaires consultations", ca_services_df),
             ("Répartition mensuelle", dist_df),
             ("BFR (jours)", bfr_days_df),
             ("Taxes et paramètres", taxes_df),
@@ -1613,7 +1778,6 @@ def make_excel_file():
         ws_input.set_column("A:A", 32)
         ws_input.set_column("B:Z", 16)
 
-        # Sheet 2 - Plan financier à imprimer
         ws_plan = workbook.add_worksheet("Plan financier à imprimer")
         writer.sheets["Plan financier à imprimer"] = ws_plan
         ws_plan.merge_range("A1:F1", "ÉTUDE FINANCIÈRE PRÉVISIONNELLE SUR 5 ANS", cover_fmt)
@@ -1633,12 +1797,12 @@ def make_excel_file():
         r = write_block_to_sheet(ws_plan, workbook, r, "BFR de démarrage", df_bfr_startup)
         r = write_block_to_sheet(ws_plan, workbook, r, "BFR d'exploitation", df_bfr)
         r = write_block_to_sheet(ws_plan, workbook, r, "Cash-flow du projet", df_cashflow)
+
         if not df_loans.empty:
             loans_export = df_loans.copy()
             loans_export["Année"] = loans_export["Année"].astype(str)
             r = write_block_to_sheet(ws_plan, workbook, r, "Tableau des emprunts", loans_export, money_default=True)
-        
-        # Sheet 3 - Base de calculs
+
         ws_calc = workbook.add_worksheet("Base de calculs")
         writer.sheets["Base de calculs"] = ws_calc
         ws_calc.merge_range("A1:D1", "DICTIONNAIRE DES FORMULES", cover_fmt)
@@ -1655,7 +1819,7 @@ def make_excel_file():
         ws_calc.set_column("B:B", 42)
         ws_calc.set_column("C:C", 42)
         ws_calc.set_column("D:D", 40)
-        # Sheet 4 - Trésorerie mensuelle
+
         ws_treso = workbook.add_worksheet("Trésorerie mensuelle")
         writer.sheets["Trésorerie mensuelle"] = ws_treso
         ws_treso.merge_range("A1:I1", "BUDGET PRÉVISIONNEL DE TRÉSORERIE - ANNÉE 1", cover_fmt)
@@ -1804,16 +1968,18 @@ def make_pdf_file():
 
     elems.append(PageBreak())
     add_pdf_table(elems, "Dictionnaire des formules", df_formula_reference)
-    
+
     elems.append(PageBreak())
     add_pdf_table(elems, "Cash-flow du projet", df_cashflow)
     add_pdf_table(elems, "Budget prévisionnel de trésorerie - année 1", df_monthly_treasury)
+
     if not df_loans.empty:
         add_pdf_table(elems, "Tableau des emprunts", df_loans)
 
     doc.build(elems)
     output.seek(0)
     return output
+
 # =========================================================
 # CALC BASE TAB
 # =========================================================
@@ -1826,6 +1992,7 @@ with tab_calc:
         unsafe_allow_html=True
     )
     st.markdown('</div>', unsafe_allow_html=True)
+
 # =========================================================
 # EXPORT TAB
 # =========================================================
@@ -1833,6 +2000,7 @@ with tab_export:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Exports professionnels</div>', unsafe_allow_html=True)
     st.write("L’Excel exporté garde une présentation structurée type cabinet, avec blocs, titres, années en colonnes et rubriques en lignes. Le PDF reprend la même logique en version imprimable.")
+
     excel_bytes = make_excel_file()
     pdf_bytes = make_pdf_file()
 
