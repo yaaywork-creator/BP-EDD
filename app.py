@@ -579,7 +579,22 @@ def reset_all_inputs():
     st.session_state["bfr_days_df"] = build_default_bfr_days()
     st.session_state["taxes_df"] = build_default_taxes_table()
 
+    editor_map = {
+        "editor_investments": "investments_df",
+        "editor_financing": "financing_df",
+        "editor_leasing": "leasing_df",
+        "editor_fixed": "fixed_df",
+        "editor_salary": "salary_df",
+        "editor_ca_services": "ca_services_df",
+        "editor_month_dist": "monthly_dist_df",
+        "editor_bfr_days": "bfr_days_df",
+        "editor_taxes": "taxes_df",
+    }
 
+    for editor_key, state_key in editor_map.items():
+        st.session_state[editor_key] = st.session_state[state_key].copy()
+        if f"{editor_key}_widget" in st.session_state:
+            del st.session_state[f"{editor_key}_widget"]
 def ensure_state():
     defaults = {
         "investments_df": build_default_investments(),
@@ -604,16 +619,23 @@ def ensure_state():
 
 
 def render_editor_stateful(state_key, editor_key, column_config=None, num_rows="dynamic"):
-    edited_df = st.data_editor(
-        st.session_state[state_key].copy(),
-        use_container_width=True,
-        num_rows=num_rows,
-        key=editor_key,
-        column_config=column_config or {},
-    )
-    st.session_state[state_key] = edited_df.copy()
-    return edited_df
+    with st.form(key=f"form_{editor_key}", clear_on_submit=False):
+        edited_df = st.data_editor(
+            st.session_state[state_key],
+            use_container_width=True,
+            num_rows=num_rows,
+            column_config=column_config or {},
+            key=f"{editor_key}_widget",
+        )
 
+        applied = st.form_submit_button("Appliquer les modifications")
+
+        if applied:
+            st.session_state[state_key] = edited_df.copy()
+            st.success("Modifications appliquées.")
+            st.rerun()
+
+    return st.session_state[state_key]
 
 ensure_state()
 
