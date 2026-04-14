@@ -44,6 +44,17 @@ else:
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 SAVE_FILE = DATA_DIR / "financial_inputs.json"
+PROJECTS_FILE = DATA_DIR / "projects.json"
+
+def load_projects():
+    if PROJECTS_FILE.exists():
+        with open(PROJECTS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_projects(projects):
+    with open(PROJECTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(projects, f, ensure_ascii=False, indent=2)
 
 # =========================================================
 # CONFIG
@@ -642,6 +653,8 @@ ensure_state()
 # =========================================================
 # SIDEBAR
 # =========================================================
+projects_data = load_projects()
+project_names = list(projects_data.keys())
 with st.sidebar:
     if LOGO_PATH and LOGO_PATH.exists():
         st.markdown(
@@ -656,27 +669,122 @@ with st.sidebar:
         st.warning("Logo introuvable dans assets/logo.png")
 
     st.markdown("## Paramètres généraux")
-    project_name = st.text_input("Nom du projet", value="Clinique Multidisciplinaire")
-    project_holder = st.text_input("Porteur du projet", value="Société CLINIQUE CAMILIA")
+
+    # 🔹 Sélection projet
+    selected_project = st.selectbox(
+        "Choisir un projet existant",
+        ["Nouveau projet"] + project_names
+    )
+
+    if selected_project != "Nouveau projet":
+        data = projects_data[selected_project]
+    else:
+        data = {}
+
+    # 🔹 Champs texte
+    project_name = st.text_input("Nom du projet", value=data.get("project_name", ""))
+    project_holder = st.text_input("Porteur du projet", value=data.get("project_holder", ""))
+
+    # 🔹 Selectbox sécurisés
+    legal_options = [
+        "Micro-entreprise",
+        "Entreprise individuelle au réel (IR)",
+        "EURL (IS)",
+        "SARL (IS)",
+        "SAS (IS)",
+        "SASU (IS)",
+        "Autre"
+    ]
+
     legal_status = st.selectbox(
         "Statut juridique",
-        ["Micro-entreprise", "Entreprise individuelle au réel (IR)", "EURL (IS)", "SARL (IS)", "SAS (IS)", "SASU (IS)", "Autre"]
+        legal_options,
+        index=legal_options.index(data.get("legal_status", "SARL (IS)"))
+        if data.get("legal_status") in legal_options else 3
     )
-    activity_nature = st.selectbox("Nature de l'activité", ["Services", "Marchandises", "Mixte"])
-    city = st.text_input("Ville / commune", value="ERRAHMA")
-    phone = st.text_input("Téléphone", value="")
-    email = st.text_input("E-mail", value="")
-    months_activity_y1 = st.number_input("Mois d'activité année 1", min_value=1, max_value=12, value=8)
-    employer_social_rate = st.number_input("Taux charges sociales employeur (%)", min_value=0.0, value=21.09, step=0.1) / 100
-    amo_share = st.number_input("Part CA couverte AMO (%)", min_value=0.0, max_value=100.0, value=80.0, step=1.0) / 100
-    private_share = st.number_input("Part CA couverte assurances privées (%)", min_value=0.0, max_value=100.0, value=10.0, step=1.0) / 100
-    uninsured_share = st.number_input("Part CA sans couverture (%)", min_value=0.0, max_value=100.0, value=10.0, step=1.0) / 100
-    cash_share = st.number_input("Part encaissée en espèces (%)", min_value=0.0, max_value=100.0, value=5.0, step=1.0) / 100
-    cheque_share = st.number_input("Part encaissée par chèque (%)", min_value=0.0, max_value=100.0, value=3.0, step=1.0) / 100
-    card_share = st.number_input("Part encaissée par carte (%)", min_value=0.0, max_value=100.0, value=2.0, step=1.0) / 100
-    auto_exempt_prof_tax = st.checkbox("Exonération taxe professionnelle sur 5 ans", value=True)
-    st.caption("Les tableaux du plan financier se remplissent automatiquement à partir des données saisies ci-dessous.")
 
+    activity_options = ["Services", "Marchandises", "Mixte"]
+
+    activity_nature = st.selectbox(
+        "Nature de l'activité",
+        activity_options,
+        index=activity_options.index(data.get("activity_nature", "Services"))
+    )
+
+    # 🔹 Coordonnées
+    city = st.text_input("Ville / commune", value=data.get("city", ""))
+    phone = st.text_input("Téléphone", value=data.get("phone", ""))
+    email = st.text_input("E-mail", value=data.get("email", ""))
+
+    # 🔹 Paramètres financiers
+    months_activity_y1 = st.number_input(
+        "Mois d'activité année 1",
+        min_value=1,
+        max_value=12,
+        value=int(data.get("months_activity_y1", 8))
+    )
+
+    employer_social_rate = st.number_input(
+        "Taux charges sociales employeur (%)",
+        min_value=0.0,
+        value=float(data.get("employer_social_rate", 21.09)),
+        step=0.1
+    ) / 100
+
+    amo_share = st.number_input(
+        "Part CA couverte AMO (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(data.get("amo_share", 80.0)),
+        step=1.0
+    ) / 100
+
+    private_share = st.number_input(
+        "Part CA couverte assurances privées (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(data.get("private_share", 10.0)),
+        step=1.0
+    ) / 100
+
+    uninsured_share = st.number_input(
+        "Part CA sans couverture (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(data.get("uninsured_share", 10.0)),
+        step=1.0
+    ) / 100
+
+    cash_share = st.number_input(
+        "Part encaissée en espèces (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(data.get("cash_share", 5.0)),
+        step=1.0
+    ) / 100
+
+    cheque_share = st.number_input(
+        "Part encaissée par chèque (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(data.get("cheque_share", 3.0)),
+        step=1.0
+    ) / 100
+
+    card_share = st.number_input(
+        "Part encaissée par carte (%)",
+        min_value=0.0,
+        max_value=100.0,
+        value=float(data.get("card_share", 2.0)),
+        step=1.0
+    ) / 100
+
+    auto_exempt_prof_tax = st.checkbox(
+        "Exonération taxe professionnelle sur 5 ans",
+        value=data.get("auto_exempt_prof_tax", True)
+    )
+
+    st.caption("Les tableaux du plan financier se remplissent automatiquement à partir des données saisies ci-dessous.")
 # =========================================================
 # HERO
 # =========================================================
@@ -708,24 +816,48 @@ st.markdown(
 # =========================================================
 # TABS
 # =========================================================
-tab_input, tab_print, tab_report, tab_calc, tab_export = st.tabs([
+tab_input, tab_print, tab_report, tab_export = st.tabs([
     "1. Données à saisir",
     "2. Plan financier à imprimer",
     "3. Contrôle global & analyse",
-    "4. Base de calculs / KPI",
-    "5. Exports Excel / PDF",
+    "4. Exports Excel / PDF",
 ])
 
 # =========================================================
 # INPUT TAB
 # =========================================================
 with tab_input:
+
     action_col1, action_col2, _ = st.columns([1.2, 1.2, 4])
 
+    # ===================== BOUTONS =====================
     with action_col1:
         if st.button("💾 Enregistrer les données", use_container_width=True):
+
+            projects_data[project_name] = {
+                "project_name": project_name,
+                "project_holder": project_holder,
+                "legal_status": legal_status,
+                "activity_nature": activity_nature,
+                "city": city,
+                "phone": phone,
+                "email": email,
+                "months_activity_y1": months_activity_y1,
+                "employer_social_rate": employer_social_rate * 100,
+                "amo_share": amo_share * 100,
+                "private_share": private_share * 100,
+                "uninsured_share": uninsured_share * 100,
+                "cash_share": cash_share * 100,
+                "cheque_share": cheque_share * 100,
+                "card_share": card_share * 100,
+                "auto_exempt_prof_tax": auto_exempt_prof_tax
+            }
+
+            save_projects(projects_data)
             save_all_inputs()
-            st.success("Les données ont été enregistrées avec succès.")
+
+            st.success("Projet enregistré avec succès ✅")
+            st.rerun()
 
     with action_col2:
         if st.button("🧹 Vider / Réinitialiser", use_container_width=True):
@@ -735,28 +867,36 @@ with tab_input:
             st.warning("Toutes les colonnes ont été réinitialisées.")
             st.rerun()
 
+    # ===================== A =====================
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">A. Identité du projet</div>', unsafe_allow_html=True)
+
     c1, c2, c3, c4 = st.columns(4)
+
     with c1:
-        st.text_input("Nom / raison sociale", value=project_holder, disabled=True, key="id_holder")
+        st.markdown(f"**Nom / raison sociale :** {project_holder}")
     with c2:
-        st.text_input("Projet / activité", value=project_name, disabled=True, key="id_project")
+        st.markdown(f"**Projet / activité :** {project_name}")
     with c3:
-        st.text_input("Ville", value=city, disabled=True, key="id_city")
+        st.markdown(f"**Ville :** {city}")
     with c4:
-        st.text_input("Statut juridique", value=legal_status, disabled=True, key="id_legal")
+        st.markdown(f"**Statut juridique :** {legal_status}")
+
     st.markdown("<p class='sub-note'>Cette zone est reprise automatiquement dans les exports et le rapport.</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ===================== B =====================
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">B. Besoins de démarrage</div>', unsafe_allow_html=True)
-    st.markdown("<p class='sub-note'>Renseigne ici uniquement les montants et les durées. L’amortissement, la synthèse investissements et le plan de financement se calculent automatiquement.</p>", unsafe_allow_html=True)
+
     investments_df = render_editor_stateful("investments_df", "editor_investments", num_rows="dynamic")
+
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ===================== C =====================
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">C. Financement du projet</div>', unsafe_allow_html=True)
+
     financing_df = render_editor_stateful(
         "financing_df",
         "editor_financing",
@@ -768,97 +908,69 @@ with tab_input:
             )
         }
     )
-    st.markdown("<p class='sub-note'>Pour les lignes de type Emprunt, renseigne le montant, le taux, la durée en mois et le différé éventuel.</p>", unsafe_allow_html=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ===================== D =====================
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">D. Contrats de crédit-bail / leasing</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">D. Crédit-bail / leasing</div>', unsafe_allow_html=True)
+
     leasing_df = render_editor_stateful("leasing_df", "editor_leasing", num_rows="dynamic")
-    st.markdown("<p class='sub-note'>L’outil calcule automatiquement les redevances annuelles par année à partir des mensualités TTC.</p>", unsafe_allow_html=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ===================== E =====================
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">E. Salaires et charges sociales</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">E. Salaires</div>', unsafe_allow_html=True)
+
     salary_df = render_editor_stateful("salary_df", "editor_salary", num_rows="dynamic")
-    st.markdown("<p class='sub-note'>Saisir le salaire brut mensuel et l’effectif par année. La masse salariale et les charges sociales se calculent seules.</p>", unsafe_allow_html=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ===================== F =====================
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">F. Charges fixes hors salaires</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">F. Charges fixes</div>', unsafe_allow_html=True)
+
     fixed_df = render_editor_stateful("fixed_df", "editor_fixed", num_rows="dynamic")
-    st.markdown("<p class='sub-note'>Tu peux modifier directement chaque année. Donc pas d’inversion lignes/colonnes dans le résultat final.</p>", unsafe_allow_html=True)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ===================== G =====================
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">G. Chiffre d’affaires prévisionnel</div>', unsafe_allow_html=True)
-    st.markdown("<p class='sub-note'>Saisis ici les consultations ou actes. La part clinique et la part médecin se calculent automatiquement sur la base du tarif et des pourcentages.</p>", unsafe_allow_html=True)
+    st.markdown('<div class="section-title">G. Chiffre d’affaires</div>', unsafe_allow_html=True)
 
-    ca_services_df = render_editor_stateful(
-        "ca_services_df",
-        "editor_ca_services",
-        num_rows="dynamic",
-        column_config={
-            "Désignation": st.column_config.TextColumn("Désignations"),
-            "Nombre de jours ouvrés par an": st.column_config.NumberColumn("Nombre de jours ouvrés par an", min_value=0, step=1),
-            "Tarif par consultation": st.column_config.NumberColumn("Tarif par consultation", min_value=0.0, step=10.0, format="%.2f"),
-            "Part clinique (%)": st.column_config.NumberColumn("Part clinique", min_value=0.0, max_value=100.0, step=1.0, format="%.1f"),
-            "Part médecin (%)": st.column_config.NumberColumn("Part médecin", min_value=0.0, max_value=100.0, step=1.0, format="%.1f"),
-        }
-    )
+    ca_services_df = render_editor_stateful("ca_services_df", "editor_ca_services", num_rows="dynamic")
 
-    ca_services_preview = ca_services_df.copy()
-    for col in ["Nombre de jours ouvrés par an", "Tarif par consultation", "Part clinique (%)", "Part médecin (%)"]:
-        ca_services_preview[col] = pd.to_numeric(ca_services_preview[col], errors="coerce").fillna(0.0)
-
-    if not ca_services_preview.empty:
-        ca_services_preview["CA brut annuel"] = (
-            ca_services_preview["Nombre de jours ouvrés par an"] *
-            ca_services_preview["Tarif par consultation"]
-        )
-        ca_services_preview["CA part clinique"] = (
-            ca_services_preview["CA brut annuel"] *
-            ca_services_preview["Part clinique (%)"] / 100
-        )
-        ca_services_preview["CA part médecin"] = (
-            ca_services_preview["CA brut annuel"] *
-            ca_services_preview["Part médecin (%)"] / 100
-        )
-        ca_services_preview["Total répartition %"] = (
-            ca_services_preview["Part clinique (%)"] +
-            ca_services_preview["Part médecin (%)"]
-        )
-
-    st.markdown("<p class='sub-note'>Aperçu des montants calculés :</p>", unsafe_allow_html=True)
-    st.dataframe(ca_services_preview, use_container_width=True)
-
-    invalid_rows = ca_services_preview[ca_services_preview["Total répartition %"] != 100] if not ca_services_preview.empty else pd.DataFrame()
-    if not invalid_rows.empty:
-        st.warning("Attention : pour certaines lignes, Part clinique + Part médecin est différente de 100%.")
-
-    dist_df = render_editor_stateful("monthly_dist_df", "editor_month_dist", num_rows="fixed")
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # ===================== H & I =====================
     cc1, cc2 = st.columns(2)
+
     with cc1:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">H. Charges variables & BFR</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">H. Charges variables</div>', unsafe_allow_html=True)
 
-        goods_purchase_rate = st.number_input("Coût d’achat marchandises / CA marchandises (%)", min_value=0.0, value=57.0, step=1.0) / 100
-        medical_consumables_rate = st.number_input("Consommables médicaux / CA services (%)", min_value=0.0, value=20.0, step=1.0) / 100
-        office_supplies_rate = st.number_input("Fournitures bureau / CA total (%)", min_value=0.0, value=2.0, step=0.5) / 100
-        other_variable_rate = st.number_input("Autres variables / CA total (%)", min_value=0.0, value=0.0, step=0.5) / 100
+        goods_purchase_rate = st.number_input("Coût marchandises (%)", value=57.0) / 100
 
-        bfr_days_df = render_editor_stateful("bfr_days_df", "editor_bfr_days", num_rows="dynamic")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with cc2:
         st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">I. Impôts, taxes et paramètres</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">I. Taxes</div>', unsafe_allow_html=True)
+
         taxes_df = render_editor_stateful("taxes_df", "editor_taxes", num_rows="dynamic")
 
-        waste_kg_month = st.number_input("Déchets médicaux (kg / mois)", min_value=0.0, value=3500.0, step=100.0)
-        waste_cost_per_kg = st.number_input("Coût traitement déchets par kg", min_value=0.0, value=6.0, step=0.5)
-        locative_base_y1 = st.number_input("Base valeur locative fiscale année 1", min_value=0.0, value=967600.0, step=1000.0)
+        locative_base_y1 = st.number_input(
+            "Base valeur locative fiscale année 1",
+            value=967600.0
+        )
+
+        st.session_state["locative_base_y1"] = locative_base_y1
+        waste_kg_month = st.number_input("Déchets médicaux (kg / mois)", value=3500.0)
+        waste_cost_per_kg = st.number_input("Coût traitement déchets / kg", value=6.0)
+
+        st.session_state["waste_kg_month"] = waste_kg_month
+        st.session_state["waste_cost_per_kg"] = waste_cost_per_kg
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1056,11 +1168,23 @@ df_ca_summary = to_year_columns_df({
     "CA total": ca_total_years,
 }, first_col_name="Rubrique")
 
+goods_purchase_rate = st.session_state.get("goods_purchase_rate", 0)
+medical_consumables_rate = st.session_state.get("medical_consumables_rate", 0)
+office_supplies_rate = st.session_state.get("office_supplies_rate", 0)
+other_variable_rate = st.session_state.get("other_variable_rate", 0)
+
 goods_purchases = [v * goods_purchase_rate for v in ca_years_goods]
 medical_consumables = [v * medical_consumables_rate for v in ca_years_services]
 office_supplies = [v * office_supplies_rate for v in ca_total_years]
 other_variable = [v * other_variable_rate for v in ca_total_years]
-waste_processing = [waste_kg_month * waste_cost_per_kg * 12 for _ in YEAR_NUMS]
+
+waste_kg_month = st.session_state.get("waste_kg_month", 0)
+waste_cost_per_kg = st.session_state.get("waste_cost_per_kg", 0)
+
+waste_processing = [
+    waste_kg_month * waste_cost_per_kg * 12
+    for _ in YEAR_NUMS
+]
 
 variable_total = []
 for idx in range(5):
@@ -1092,6 +1216,7 @@ stamp_rates = tax_map.get("Droits d'enregistrement / timbre", [0.0025] * 5)
 sign_tax_values = tax_map.get("Taxe enseigne", [200000.0] * 5)
 non_current_rates = tax_map.get("Charges non courantes (% du CA)", [0.001] * 5)
 
+locative_base_y1 = st.session_state.get("locative_base_y1", 0)
 locative_base_years = growth_series(locative_base_y1, [0.0, 0.0, 0.0, 0.0])
 tsc_values = [locative_base_years[i] * tsc_rates[i] for i in range(5)]
 if auto_exempt_prof_tax:
@@ -1665,81 +1790,77 @@ with tab_report:
 # =========================================================
 # EXCEL EXPORT
 # =========================================================
-def write_block_to_sheet(
-    worksheet,
-    workbook,
-    start_row,
-    title,
-    df,
-    percent_rows=None,
-    money_default=True,
-):
+def write_block_to_sheet(worksheet, workbook, start_row, title, df, percent_rows=None):
     percent_rows = percent_rows or []
 
+    # 🎨 NOUVEAU STYLE (ROUGE)
     fmt_title = workbook.add_format({
         "bold": True,
         "font_color": "white",
-        "bg_color": "#0F4C81",
+        "bg_color": "#C62828",
         "align": "center",
         "valign": "vcenter",
-        "border": 1,
-        "font_size": 12,
+        "font_size": 13,
+        "border": 0
     })
+
     fmt_header = workbook.add_format({
         "bold": True,
-        "font_color": "#0F2B57",
-        "bg_color": "#D9EEF9",
+        "font_color": "#C62828",
+        "bg_color": "#FCEAEA",
         "align": "center",
-        "valign": "vcenter",
-        "border": 1,
+        "border": 0
     })
+
     fmt_text = workbook.add_format({
-        "border": 1,
-        "align": "left",
-        "valign": "vcenter",
+        "border": 0,
+        "align": "left"
     })
+
     fmt_money = workbook.add_format({
-        "border": 1,
+        "border": 0,
         "align": "right",
-        "valign": "vcenter",
-        "num_format": "#,##0;[Red]-#,##0",
+        "num_format": "#,##0"
     })
+
     fmt_pct = workbook.add_format({
-        "border": 1,
+        "border": 0,
         "align": "right",
-        "valign": "vcenter",
-        "num_format": "0.0%",
+        "num_format": "0.0%"
     })
 
     ncols = len(df.columns)
+
+    # 🔴 TITRE
     worksheet.merge_range(start_row, 0, start_row, ncols - 1, title, fmt_title)
+    start_row += 2
+
+    # HEADER
+    for c, col in enumerate(df.columns):
+        worksheet.write(start_row, c, col, fmt_header)
+
     start_row += 1
 
-    for c_idx, col in enumerate(df.columns):
-        worksheet.write(start_row, c_idx, col, fmt_header)
-    start_row += 1
+    # DATA
+    for r in range(len(df)):
+        row_label = str(df.iloc[r, 0])
 
-    for r_idx in range(len(df)):
-        for c_idx, col in enumerate(df.columns):
-            val = df.iloc[r_idx, c_idx]
-            row_label = str(df.iloc[r_idx, 0]) if len(df.columns) > 0 else ""
+        for c in range(ncols):
+            val = df.iloc[r, c]
 
-            if c_idx == 0:
-                worksheet.write(start_row + r_idx, c_idx, val, fmt_text)
+            if c == 0:
+                worksheet.write(start_row + r, c, val, fmt_text)
             else:
                 if row_label in percent_rows:
-                    worksheet.write_number(start_row + r_idx, c_idx, n(val), fmt_pct)
-                elif money_default and isinstance(val, (int, float, np.integer, np.floating)):
-                    worksheet.write_number(start_row + r_idx, c_idx, n(val), fmt_money)
+                    worksheet.write_number(start_row + r, c, float(val), fmt_pct)
                 else:
-                    worksheet.write(start_row + r_idx, c_idx, val, fmt_text)
+                    worksheet.write_number(start_row + r, c, float(val), fmt_money)
 
-    worksheet.set_column(0, 0, 38)
-    for c_idx in range(1, ncols):
-        worksheet.set_column(c_idx, c_idx, 16)
+    # largeur
+    worksheet.set_column(0, 0, 40)
+    worksheet.set_column(1, ncols, 18)
 
-    return start_row + len(df) + 2
-
+    return start_row + len(df) + 3
 
 def make_excel_file():
     output = BytesIO()
@@ -1747,40 +1868,65 @@ def make_excel_file():
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         workbook = writer.book
 
+        # 🎨 STYLE ROUGE (comme ton site)
         cover_fmt = workbook.add_format({
             "bold": True,
             "font_color": "white",
-            "bg_color": "#0F4C81",
+            "bg_color": "#C62828",
             "font_size": 16,
             "align": "center",
-            "valign": "vcenter",
-            "border": 1,
+            "valign": "vcenter"
         })
+
         sub_fmt = workbook.add_format({
             "bold": True,
-            "font_color": "#0F2B57",
-            "bg_color": "#D9EEF9",
-            "align": "left",
-            "border": 1,
+            "font_color": "#C62828",
+            "bg_color": "#FCEAEA",
+            "align": "left"
         })
-        text_fmt = workbook.add_format({"border": 1})
-        money_fmt = workbook.add_format({"border": 1, "num_format": "#,##0;[Red]-#,##0"})
 
+        text_fmt = workbook.add_format({
+            "align": "left"
+        })
+
+        money_fmt = workbook.add_format({
+            "align": "right",
+            "num_format": "#,##0"
+        })
+
+        # =========================
+        # FEUILLE 1 : INPUT
+        # =========================
         ws_input = workbook.add_worksheet("Données à saisir")
         writer.sheets["Données à saisir"] = ws_input
+
+        ws_input.set_zoom(90)
+
+        # 👉 Logo (si fichier existe)
+        try:
+            ws_input.insert_image("A1", "assets/logo.png", {"x_scale": 0.4, "y_scale": 0.4})
+        except:
+            pass
+
         ws_input.merge_range("A1:F1", "DONNÉES À SAISIR", cover_fmt)
+
         ws_input.write("A3", "Projet", sub_fmt)
         ws_input.write("B3", project_name, text_fmt)
+
         ws_input.write("A4", "Porteur", sub_fmt)
         ws_input.write("B4", project_holder, text_fmt)
+
         ws_input.write("A5", "Ville", sub_fmt)
         ws_input.write("B5", city, text_fmt)
+
         ws_input.write("A6", "Statut juridique", sub_fmt)
         ws_input.write("B6", legal_status, text_fmt)
+
         ws_input.write("A7", "Nature activité", sub_fmt)
         ws_input.write("B7", activity_nature, text_fmt)
 
         row = 9
+
         for title, df in [
             ("Besoins de démarrage", investments_df),
             ("Financement", financing_df),
@@ -1794,18 +1940,38 @@ def make_excel_file():
         ]:
             ws_input.write(row, 0, title, sub_fmt)
             row += 1
-            df.to_excel(writer, sheet_name="Données à saisir", startrow=row, startcol=0, index=False)
+
+            df.to_excel(
+                writer,
+                sheet_name="Données à saisir",
+                startrow=row,
+                startcol=0,
+                index=False
+            )
+
             row += len(df) + 3
 
-        ws_input.set_column("A:A", 32)
-        ws_input.set_column("B:Z", 16)
+        ws_input.set_column("A:A", 35)
+        ws_input.set_column("B:Z", 18)
 
+        # =========================
+        # FEUILLE 2 : PLAN
+        # =========================
         ws_plan = workbook.add_worksheet("Plan financier à imprimer")
         writer.sheets["Plan financier à imprimer"] = ws_plan
+
+        ws_plan.set_zoom(85)
+
+        try:
+            ws_plan.insert_image("A1", "assets/logo.png", {"x_scale": 0.5, "y_scale": 0.5})
+        except:
+            pass
+
         ws_plan.merge_range("A1:F1", "ÉTUDE FINANCIÈRE PRÉVISIONNELLE SUR 5 ANS", cover_fmt)
         ws_plan.merge_range("A2:F2", project_name, cover_fmt)
 
         r = 4
+
         r = write_block_to_sheet(ws_plan, workbook, r, "Investissements et financements", df_invest_summary)
         r = write_block_to_sheet(ws_plan, workbook, r, "Structure de financement", df_funding_structure)
         r = write_block_to_sheet(ws_plan, workbook, r, "Plan de financement sur 5 ans", df_funding_plan)
@@ -1823,35 +1989,31 @@ def make_excel_file():
         if not df_loans.empty:
             loans_export = df_loans.copy()
             loans_export["Année"] = loans_export["Année"].astype(str)
-            r = write_block_to_sheet(ws_plan, workbook, r, "Tableau des emprunts", loans_export, money_default=True)
+            r = write_block_to_sheet(ws_plan, workbook, r, "Tableau des emprunts", loans_export)
 
-        ws_calc = workbook.add_worksheet("Base de calculs")
-        writer.sheets["Base de calculs"] = ws_calc
-        ws_calc.merge_range("A1:D1", "DICTIONNAIRE DES FORMULES", cover_fmt)
+        # =========================
+        # FEUILLE 3 : TRESORERIE
+        # =========================
+        ws_treso = workbook.add_worksheet("Trésorerie mensuelle")
+        writer.sheets["Trésorerie mensuelle"] = ws_treso
 
-        df_formula_reference.to_excel(
+        ws_treso.set_zoom(90)
+
+        ws_treso.merge_range("A1:I1", "BUDGET PRÉVISIONNEL DE TRÉSORERIE - ANNÉE 1", cover_fmt)
+
+        df_monthly_treasury.to_excel(
             writer,
-            sheet_name="Base de calculs",
+            sheet_name="Trésorerie mensuelle",
             startrow=2,
             startcol=0,
             index=False
         )
 
-        ws_calc.set_column("A:A", 32)
-        ws_calc.set_column("B:B", 42)
-        ws_calc.set_column("C:C", 42)
-        ws_calc.set_column("D:D", 40)
-
-        ws_treso = workbook.add_worksheet("Trésorerie mensuelle")
-        writer.sheets["Trésorerie mensuelle"] = ws_treso
-        ws_treso.merge_range("A1:I1", "BUDGET PRÉVISIONNEL DE TRÉSORERIE - ANNÉE 1", cover_fmt)
-        df_monthly_treasury.to_excel(writer, sheet_name="Trésorerie mensuelle", startrow=2, startcol=0, index=False)
-        ws_treso.set_column("A:A", 16)
+        ws_treso.set_column("A:A", 18)
         ws_treso.set_column("B:I", 18, money_fmt)
 
     output.seek(0)
     return output
-
 # =========================================================
 # PDF EXPORT
 # =========================================================
@@ -1863,43 +2025,50 @@ def add_pdf_table(elements, title, df, percent_rows=None):
         "tbl_title",
         parent=styles["Heading3"],
         fontName="Helvetica-Bold",
-        fontSize=11,
-        textColor=colors.HexColor("#0F4C81"),
+        fontSize=12,
+        textColor=colors.HexColor("#C62828"),
         spaceAfter=6,
-        spaceBefore=6,
+        spaceBefore=10,
     )
+
     elements.append(Paragraph(title, title_style))
 
     data = [list(df.columns)]
+
     for _, row in df.iterrows():
-        vals = []
-        row_label = str(row.iloc[0]) if len(row) > 0 else ""
-        for col, val in row.items():
-            if isinstance(val, (int, float, np.integer, np.floating)):
-                if row_label in percent_rows:
-                    vals.append(f"{val:.1%}")
+        line = []
+        label = str(row.iloc[0])
+
+        for val in row:
+            if isinstance(val, (int, float)):
+                if label in percent_rows:
+                    line.append(f"{val:.1%}")
                 else:
-                    vals.append(f"{val:,.0f}".replace(",", " "))
+                    line.append(f"{val:,.0f}".replace(",", " "))
             else:
-                vals.append(str(val))
-        data.append(vals)
+                line.append(str(val))
+        data.append(line)
 
     table = Table(data, repeatRows=1)
+
     table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F4C81")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#C62828")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+
+        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+
+        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#EEEEEE")),
+
         ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
-        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D0DCEB")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor("#EEF6FC")]),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
     ]))
+
     elements.append(table)
-    elements.append(Spacer(1, 0.25 * cm))
+    elements.append(Spacer(1, 10))
 
 
 def make_pdf_file():
@@ -1953,7 +2122,17 @@ def make_pdf_file():
     )
 
     elems = []
-    elems.append(Paragraph("ÉTUDE FINANCIÈRE PRÉVISIONNELLE SUR 5 ANS", title_style))
+    elems.append(Paragraph(
+    "ÉTUDE FINANCIÈRE PRÉVISIONNELLE SUR 5 ANS",
+    ParagraphStyle(
+        "title_red",
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        textColor=colors.HexColor("#C62828"),  # 🔴 ROUGE SITE
+        alignment=TA_CENTER,
+        spaceAfter=10,
+    )
+))
     elems.append(Paragraph(project_name, sub_style))
     elems.append(Paragraph(f"{project_holder} — {city} — Généré le {datetime.now().strftime('%d/%m/%Y %H:%M')}", sub_style))
 
@@ -1989,9 +2168,6 @@ def make_pdf_file():
     add_pdf_table(elems, "BFR d'exploitation", df_bfr)
 
     elems.append(PageBreak())
-    add_pdf_table(elems, "Dictionnaire des formules", df_formula_reference)
-
-    elems.append(PageBreak())
     add_pdf_table(elems, "Cash-flow du projet", df_cashflow)
     add_pdf_table(elems, "Budget prévisionnel de trésorerie - année 1", df_monthly_treasury)
 
@@ -2001,19 +2177,6 @@ def make_pdf_file():
     doc.build(elems)
     output.seek(0)
     return output
-
-# =========================================================
-# CALC BASE TAB
-# =========================================================
-with tab_calc:
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">Dictionnaire des formules</div>', unsafe_allow_html=True)
-    st.dataframe(df_formula_reference, use_container_width=True, height=650)
-    st.markdown(
-        "<p class='sub-note'>Cette rubrique contient uniquement le dictionnaire des formules, méthodes de calcul, ratios, indicateurs et KPI utilisés dans l’outil.</p>",
-        unsafe_allow_html=True
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
 # EXPORT TAB

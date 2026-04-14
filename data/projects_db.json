@@ -1,0 +1,596 @@
+{
+  "Clinique Multidisciplinaire": {
+    "meta": {
+      "project_name": "Clinique Multidisciplinaire",
+      "project_holder": "Société CLINIQUE CAMILIA",
+      "legal_status": "Micro-entreprise",
+      "city": "ERRAHMA",
+      "phone": "",
+      "email": ""
+    },
+    "data": {
+      "investments_df": [
+        {
+          "Rubrique": "Frais d'établissement",
+          "Montant": 80000.0,
+          "Durée amort. (ans)": 5
+        },
+        {
+          "Rubrique": "Frais d'étude",
+          "Montant": 100000.0,
+          "Durée amort. (ans)": 5
+        },
+        {
+          "Rubrique": "Logiciels / formations",
+          "Montant": 100000.0,
+          "Durée amort. (ans)": 3
+        },
+        {
+          "Rubrique": "Dépôt marque / brevet / modèle",
+          "Montant": 20000.0,
+          "Durée amort. (ans)": 5
+        },
+        {
+          "Rubrique": "Droits d'entrée",
+          "Montant": 0.0,
+          "Durée amort. (ans)": 5
+        },
+        {
+          "Rubrique": "Achat fonds de commerce / parts",
+          "Montant": 0.0,
+          "Durée amort. (ans)": 10
+        },
+        {
+          "Rubrique": "Droit au bail",
+          "Montant": 500000.0,
+          "Durée amort. (ans)": 10
+        },
+        {
+          "Rubrique": "Caution / dépôt de garantie",
+          "Montant": 300000.0,
+          "Durée amort. (ans)": 5
+        },
+        {
+          "Rubrique": "Frais de dossier",
+          "Montant": 30000.0,
+          "Durée amort. (ans)": 5
+        },
+        {
+          "Rubrique": "Frais de notaire / avocat",
+          "Montant": 70000.0,
+          "Durée amort. (ans)": 5
+        },
+        {
+          "Rubrique": "Enseigne / communication de lancement",
+          "Montant": 120000.0,
+          "Durée amort. (ans)": 4
+        },
+        {
+          "Rubrique": "Achat immobilier",
+          "Montant": 1000000.0,
+          "Durée amort. (ans)": 20
+        },
+        {
+          "Rubrique": "Construction / aménagement",
+          "Montant": 4500000.0,
+          "Durée amort. (ans)": 10
+        },
+        {
+          "Rubrique": "Terrassement",
+          "Montant": 300000.0,
+          "Durée amort. (ans)": 10
+        },
+        {
+          "Rubrique": "Matériel / équipements",
+          "Montant": 12000000.0,
+          "Durée amort. (ans)": 7
+        },
+        {
+          "Rubrique": "Stock initial",
+          "Montant": 800000.0,
+          "Durée amort. (ans)": 1
+        },
+        {
+          "Rubrique": "Trésorerie de départ",
+          "Montant": 4000000.0,
+          "Durée amort. (ans)": 0
+        }
+      ],
+      "financing_df": [
+        {
+          "Source": "Apport personnel / familial",
+          "Type": "Fonds propres",
+          "Montant": 1010000.0,
+          "Taux annuel": 0.0,
+          "Durée (mois)": 0,
+          "Différé (mois)": 0
+        },
+        {
+          "Source": "Apports en nature",
+          "Type": "Fonds propres",
+          "Montant": 0.0,
+          "Taux annuel": 0.0,
+          "Durée (mois)": 0,
+          "Différé (mois)": 0
+        },
+        {
+          "Source": "Compte courant associé",
+          "Type": "Quasi-fonds propres",
+          "Montant": 0.0,
+          "Taux annuel": 0.0,
+          "Durée (mois)": 0,
+          "Différé (mois)": 0
+        },
+        {
+          "Source": "Prêt n°1",
+          "Type": "Emprunt",
+          "Montant": 0.0,
+          "Taux annuel": 0.06,
+          "Durée (mois)": 120,
+          "Différé (mois)": 0
+        },
+        {
+          "Source": "Prêt n°2",
+          "Type": "Emprunt",
+          "Montant": 0.0,
+          "Taux annuel": 0.05,
+          "Durée (mois)": 84,
+          "Différé (mois)": 0
+        },
+        {
+          "Source": "Prêt n°3",
+          "Type": "Emprunt",
+          "Montant": 22910000.0,
+          "Taux annuel": 0.05,
+          "Durée (mois)": 84,
+          "Différé (mois)": 0
+        },
+        {
+          "Source": "Subvention",
+          "Type": "Subvention",
+          "Montant": 0.0,
+          "Taux annuel": 0.0,
+          "Durée (mois)": 0,
+          "Différé (mois)": 0
+        },
+        {
+          "Source": "Autre financement",
+          "Type": "Autre",
+          "Montant": 0.0,
+          "Taux annuel": 0.0,
+          "Durée (mois)": 0,
+          "Différé (mois)": 0
+        }
+      ],
+      "leasing_df": [
+        {
+          "Contrat": "LRM1",
+          "Montant financé TTC": 120000.0,
+          "Redevance mensuelle TTC": 2592.0,
+          "Nombre de mois": 60,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "LRM2",
+          "Montant financé TTC": 90000.0,
+          "Redevance mensuelle TTC": 1944.0,
+          "Nombre de mois": 60,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "LRM3",
+          "Montant financé TTC": 75000.0,
+          "Redevance mensuelle TTC": 1620.0,
+          "Nombre de mois": 60,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "LRM4",
+          "Montant financé TTC": 60000.0,
+          "Redevance mensuelle TTC": 1296.0,
+          "Nombre de mois": 60,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "FP1",
+          "Montant financé TTC": 30000.0,
+          "Redevance mensuelle TTC": 648.0,
+          "Nombre de mois": 48,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "FP2",
+          "Montant financé TTC": 250000.0,
+          "Redevance mensuelle TTC": 5400.0,
+          "Nombre de mois": 48,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "FP3",
+          "Montant financé TTC": 20000.0,
+          "Redevance mensuelle TTC": 432.0,
+          "Nombre de mois": 48,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "FP4",
+          "Montant financé TTC": 15000.0,
+          "Redevance mensuelle TTC": 324.0,
+          "Nombre de mois": 48,
+          "Mois de départ": 1
+        },
+        {
+          "Contrat": "FP5",
+          "Montant financé TTC": 10000.0,
+          "Redevance mensuelle TTC": 216.0,
+          "Nombre de mois": 48,
+          "Mois de départ": 1
+        }
+      ],
+      "fixed_df": [
+        {
+          "Rubrique": "Assurances",
+          "Année 1": 40000.0,
+          "Année 2": 45000.0,
+          "Année 3": 45000.0,
+          "Année 4": 45000.0,
+          "Année 5": 45000.0
+        },
+        {
+          "Rubrique": "Téléphone / internet",
+          "Année 1": 15000.0,
+          "Année 2": 15000.0,
+          "Année 3": 15000.0,
+          "Année 4": 20000.0,
+          "Année 5": 20000.0
+        },
+        {
+          "Rubrique": "Autres abonnements",
+          "Année 1": 10000.0,
+          "Année 2": 10000.0,
+          "Année 3": 10000.0,
+          "Année 4": 10000.0,
+          "Année 5": 10000.0
+        },
+        {
+          "Rubrique": "Carburant / transports",
+          "Année 1": 25000.0,
+          "Année 2": 25000.0,
+          "Année 3": 30000.0,
+          "Année 4": 35000.0,
+          "Année 5": 40000.0
+        },
+        {
+          "Rubrique": "Déplacements / hébergement",
+          "Année 1": 15000.0,
+          "Année 2": 15000.0,
+          "Année 3": 15000.0,
+          "Année 4": 15000.0,
+          "Année 5": 15000.0
+        },
+        {
+          "Rubrique": "Eau / électricité / gaz",
+          "Année 1": 100000.0,
+          "Année 2": 100000.0,
+          "Année 3": 100000.0,
+          "Année 4": 100000.0,
+          "Année 5": 100000.0
+        },
+        {
+          "Rubrique": "Mutuelle",
+          "Année 1": 10000.0,
+          "Année 2": 10000.0,
+          "Année 3": 10000.0,
+          "Année 4": 10000.0,
+          "Année 5": 10000.0
+        },
+        {
+          "Rubrique": "Fournitures diverses",
+          "Année 1": 90322.92,
+          "Année 2": 8840050.0,
+          "Année 3": 12290050.0,
+          "Année 4": 15493375.0,
+          "Année 5": 16075562.5
+        },
+        {
+          "Rubrique": "Entretien matériel / vêtements",
+          "Année 1": 40000.0,
+          "Année 2": 40000.0,
+          "Année 3": 40000.0,
+          "Année 4": 40000.0,
+          "Année 5": 40000.0
+        },
+        {
+          "Rubrique": "Nettoyage locaux",
+          "Année 1": 30000.0,
+          "Année 2": 30000.0,
+          "Année 3": 30000.0,
+          "Année 4": 30000.0,
+          "Année 5": 30000.0
+        },
+        {
+          "Rubrique": "Publicité / communication",
+          "Année 1": 50000.0,
+          "Année 2": 50000.0,
+          "Année 3": 50000.0,
+          "Année 4": 50000.0,
+          "Année 5": 50000.0
+        },
+        {
+          "Rubrique": "Loyer et charges locatives",
+          "Année 1": 250000.0,
+          "Année 2": 250000.0,
+          "Année 3": 250000.0,
+          "Année 4": 250000.0,
+          "Année 5": 250000.0
+        },
+        {
+          "Rubrique": "Frais bancaires",
+          "Année 1": 10000.0,
+          "Année 2": 10000.0,
+          "Année 3": 10000.0,
+          "Année 4": 10000.0,
+          "Année 5": 10000.0
+        },
+        {
+          "Rubrique": "Taxes diverses",
+          "Année 1": 20000.0,
+          "Année 2": 20000.0,
+          "Année 3": 20000.0,
+          "Année 4": 20000.0,
+          "Année 5": 20000.0
+        },
+        {
+          "Rubrique": "Expert-comptable",
+          "Année 1": 10000.0,
+          "Année 2": 10000.0,
+          "Année 3": 10000.0,
+          "Année 4": 10000.0,
+          "Année 5": 10000.0
+        }
+      ],
+      "salary_df": [
+        {
+          "Poste": "Directeurs et managers",
+          "Salaire brut mensuel": 105400.0,
+          "Année 1": 2,
+          "Année 2": 4,
+          "Année 3": 4,
+          "Année 4": 4,
+          "Année 5": 4
+        },
+        {
+          "Poste": "Directeur médical",
+          "Salaire brut mensuel": 34000.0,
+          "Année 1": 1,
+          "Année 2": 1,
+          "Année 3": 1,
+          "Année 4": 1,
+          "Année 5": 1
+        },
+        {
+          "Poste": "Nutritionniste",
+          "Salaire brut mensuel": 25500.0,
+          "Année 1": 0,
+          "Année 2": 1,
+          "Année 3": 1,
+          "Année 4": 1,
+          "Année 5": 1
+        },
+        {
+          "Poste": "Directeur de soins",
+          "Salaire brut mensuel": 25500.0,
+          "Année 1": 1,
+          "Année 2": 1,
+          "Année 3": 1,
+          "Année 4": 1,
+          "Année 5": 1
+        },
+        {
+          "Poste": "Personnel paramédical",
+          "Salaire brut mensuel": 3517.1052631578946,
+          "Année 1": 38,
+          "Année 2": 70,
+          "Année 3": 81,
+          "Année 4": 92,
+          "Année 5": 104
+        },
+        {
+          "Poste": "Personnel administratif et support",
+          "Salaire brut mensuel": 7325.0,
+          "Année 1": 27,
+          "Année 2": 43,
+          "Année 3": 43,
+          "Année 4": 43,
+          "Année 5": 43
+        }
+      ],
+      "ca_services_df": [
+        {
+          "Désignation": "Consultation générale",
+          "Nombre de jours ouvrés par an": 312,
+          "Tarif par consultation": 250.0,
+          "Part clinique (%)": 55.0,
+          "Part médecin (%)": 45.0
+        },
+        {
+          "Désignation": "Consultation spécialisée",
+          "Nombre de jours ouvrés par an": 312,
+          "Tarif par consultation": 400.0,
+          "Part clinique (%)": 55.0,
+          "Part médecin (%)": 45.0
+        }
+      ],
+      "monthly_dist_df": [
+        {
+          "Mois": "Jan",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Fév",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Mar",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Avr",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Mai",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Juin",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Juil",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Août",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Sep",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Oct",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Nov",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        },
+        {
+          "Mois": "Déc",
+          "% CA marchandises": 8.333333333333334,
+          "% CA services": 8.333333333333334
+        }
+      ],
+      "bfr_days_df": [
+        {
+          "Rubrique": "Stock (jours d'achats)",
+          "Année 1": 15,
+          "Année 2": 15,
+          "Année 3": 15,
+          "Année 4": 15,
+          "Année 5": 15
+        },
+        {
+          "Rubrique": "Créances AMO (jours)",
+          "Année 1": 120,
+          "Année 2": 120,
+          "Année 3": 120,
+          "Année 4": 120,
+          "Année 5": 120
+        },
+        {
+          "Rubrique": "Créances privées (jours)",
+          "Année 1": 120,
+          "Année 2": 120,
+          "Année 3": 120,
+          "Année 4": 120,
+          "Année 5": 120
+        },
+        {
+          "Rubrique": "Créances sans couverture (jours)",
+          "Année 1": 0,
+          "Année 2": 0,
+          "Année 3": 0,
+          "Année 4": 0,
+          "Année 5": 0
+        },
+        {
+          "Rubrique": "Autres créances (jours)",
+          "Année 1": 30,
+          "Année 2": 30,
+          "Année 3": 30,
+          "Année 4": 30,
+          "Année 5": 30
+        },
+        {
+          "Rubrique": "Dettes fournisseurs (jours)",
+          "Année 1": 60,
+          "Année 2": 60,
+          "Année 3": 60,
+          "Année 4": 60,
+          "Année 5": 60
+        },
+        {
+          "Rubrique": "Autres dettes (jours)",
+          "Année 1": 30,
+          "Année 2": 30,
+          "Année 3": 30,
+          "Année 4": 30,
+          "Année 5": 30
+        }
+      ],
+      "taxes_df": [
+        {
+          "Rubrique": "IS",
+          "Année 1": 0.2,
+          "Année 2": 0.2,
+          "Année 3": 0.2,
+          "Année 4": 0.2,
+          "Année 5": 0.2
+        },
+        {
+          "Rubrique": "Taxe services communaux",
+          "Année 1": 0.105,
+          "Année 2": 0.105,
+          "Année 3": 0.105,
+          "Année 4": 0.105,
+          "Année 5": 0.105
+        },
+        {
+          "Rubrique": "Taxe professionnelle",
+          "Année 1": 0.2,
+          "Année 2": 0.2,
+          "Année 3": 0.2,
+          "Année 4": 0.2,
+          "Année 5": 0.2
+        },
+        {
+          "Rubrique": "Droits d'enregistrement / timbre",
+          "Année 1": 0.0025,
+          "Année 2": 0.0025,
+          "Année 3": 0.0025,
+          "Année 4": 0.0025,
+          "Année 5": 0.0025
+        },
+        {
+          "Rubrique": "Taxe enseigne",
+          "Année 1": 200000.0,
+          "Année 2": 200000.0,
+          "Année 3": 200000.0,
+          "Année 4": 200000.0,
+          "Année 5": 200000.0
+        },
+        {
+          "Rubrique": "Charges non courantes (% du CA)",
+          "Année 1": 0.001,
+          "Année 2": 0.001,
+          "Année 3": 0.001,
+          "Année 4": 0.001,
+          "Année 5": 0.001
+        }
+      ]
+    }
+  }
+}
